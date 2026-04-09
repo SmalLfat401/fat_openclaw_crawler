@@ -22,6 +22,7 @@ from app.models.guzi_product import (
     GuziProductCreate,
     GuziProductUpdate,
     ProductSearchItem,
+    ProductSearchResponse,
     PlatformProduct,
 )
 
@@ -154,7 +155,7 @@ def _get_mock_products(keyword: str) -> List[Dict[str, Any]]:
 MOCK_MODE = False
 
 
-@router.get("/search", response_model=List[ProductSearchItem])
+@router.get("/search", response_model=ProductSearchResponse)
 async def search_guzi_products(
     keyword: str = Query(..., min_length=1),
     platforms: Optional[str] = Query(None, description="comma separated, e.g. alimama,jd,pdd"),
@@ -162,11 +163,13 @@ async def search_guzi_products(
     page_size: int = Query(20, ge=1, le=50),
     adzone_id: Optional[int] = Query(None, description="阿里妈妈推广位 adzone_id（可选，不填则自动从PID解析）"),
     material_id: Optional[int] = Query(None, description="物料ID（可选，默认为80309-爆品库）"),
+    sort: Optional[str] = Query("tk_rate_des", description="排序方式: tk_rate_des佣金率降序, tk_rate_asc佣金率升序, total_sales_des销量降序, total_sales_asc销量升序, price_asc价格升序, price_des价格降序"),
     save: bool = Query(False, description="是否将搜索结果批量保存到数据库"),
 ):
     platform_list = [p.strip() for p in (platforms or "alimama").split(",") if p.strip()]
 
     results: List[ProductSearchItem] = []
+    total_results: int = 0
 
     # 物料ID默认值：80309=爆品库（更适合“谷子/周边”搜索场景）
     # 也可传 material_id 覆盖（如 17004 官方精选）
@@ -206,8 +209,10 @@ async def search_guzi_products(
                 page_size=page_size,
                 adzone_id=resolved_adzone_id,
                 material_id=resolved_material_id,
+                sort=sort,
             )
             items = search_result.get("items") or []
+            total_results = search_result.get("total_results") or 0
         except Exception as e:
             # API调用失败时使用模拟数据
             if MOCK_MODE:
@@ -303,7 +308,12 @@ async def search_guzi_products(
             raise HTTPException(status_code=500, detail=f"批量保存失败: {e}")
 
     # TODO: jd/pdd adapters later
-    return results
+    return ProductSearchResponse(
+        items=results,
+        total=total_results,
+        page_no=page_no,
+        page_size=page_size,
+    )
 
 
 # ──────────────────────────────────────────────

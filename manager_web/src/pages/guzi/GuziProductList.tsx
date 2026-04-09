@@ -146,6 +146,16 @@ export default function GuziProductList() {
     pageSize: 10,
     total: 0,
   });
+  // 搜索分页状态
+  const [searchPagination, setSearchPagination] = useState({
+    current: 1,
+    pageSize: 20,
+    total: 0,
+  });
+  // 排序状态
+  const [searchSort, setSearchSort] = useState('tk_rate_des');
+  // 跟踪已添加的商品标题（用于在列表中标记）
+  const [addedProductTitles, setAddedProductTitles] = useState<Set<string>>(new Set());
   const [filterActive, setFilterActive] = useState<boolean | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
@@ -262,11 +272,79 @@ export default function GuziProductList() {
 
     setSearchLoading(true);
     try {
-      const results = await guziProductApi.searchAlimama(finalKeyword);
-      setSearchResults(results);
+      // 从第1页开始搜索，重置分页
+      setSearchPagination(prev => ({ ...prev, current: 1 }));
+      const response = await guziProductApi.searchAlimama(finalKeyword, 1, searchPagination.pageSize, searchSort);
+      setSearchResults(response.items);
+      setSearchPagination(prev => ({ ...prev, total: response.total }));
     } catch (error) {
       // 后端未实现时使用模拟数据
       setSearchResults(mockSearchResults);
+      setSearchPagination(prev => ({ ...prev, total: mockSearchResults.length }));
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // 搜索结果分页切换
+  const handleSearchPageChange = async (page: number, pageSize: number) => {
+    // 组装搜索词
+    const parts: string[] = [];
+    if (searchIpTag) {
+      const tag = ipTags.find(t => t._id === searchIpTag);
+      if (tag) parts.push(tag.name);
+    }
+    if (searchCategoryTag) {
+      const tag = categoryTags.find(t => t._id === searchCategoryTag);
+      if (tag) parts.push(tag.name);
+    }
+    if (searchKeyword) {
+      parts.push(searchKeyword.trim());
+    }
+    const finalKeyword = parts.join(' ');
+
+    if (!finalKeyword) return;
+
+    setSearchLoading(true);
+    setSearchPagination(prev => ({ ...prev, current: page, pageSize }));
+    try {
+      const response = await guziProductApi.searchAlimama(finalKeyword, page, pageSize, searchSort);
+      setSearchResults(response.items);
+    } catch (error) {
+      message.error('加载更多失败');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // 排序切换
+  const handleSortChange = async (sort: string) => {
+    setSearchSort(sort);
+    // 组装搜索词
+    const parts: string[] = [];
+    if (searchIpTag) {
+      const tag = ipTags.find(t => t._id === searchIpTag);
+      if (tag) parts.push(tag.name);
+    }
+    if (searchCategoryTag) {
+      const tag = categoryTags.find(t => t._id === searchCategoryTag);
+      if (tag) parts.push(tag.name);
+    }
+    if (searchKeyword) {
+      parts.push(searchKeyword.trim());
+    }
+    const finalKeyword = parts.join(' ');
+
+    if (!finalKeyword) return;
+
+    setSearchLoading(true);
+    setSearchPagination(prev => ({ ...prev, current: 1 }));
+    try {
+      const response = await guziProductApi.searchAlimama(finalKeyword, 1, searchPagination.pageSize, sort);
+      setSearchResults(response.items);
+      setSearchPagination(prev => ({ ...prev, total: response.total }));
+    } catch (error) {
+      message.error('切换排序失败');
     } finally {
       setSearchLoading(false);
     }
@@ -278,6 +356,10 @@ export default function GuziProductList() {
     setSearchCategoryTag(undefined);
     setSearchKeyword('');
     setSearchResults([]);
+    setSelectedRows([]);
+    setSearchPagination({ current: 1, pageSize: 20, total: 0 });
+    setAddedProductTitles(new Set());
+    setSearchSort('tk_rate_des');
   };
 
   // 添加选中的商品到列表
@@ -304,10 +386,17 @@ export default function GuziProductList() {
       }));
 
       await guziProductApi.createProducts(productsToCreate);
-      message.success(`成功添加 ${selectedRows.length} 个商品`);
-      setSearchModalVisible(false);
+      message.success(`成功添加 ${selectedRows.length} 个商品到数据库`);
+      // 标记这些商品已添加（视觉区分）
+      setAddedProductTitles(prev => {
+        const newSet = new Set(prev);
+        selectedRows.forEach(item => newSet.add(item.title));
+        return newSet;
+      });
+      // 不关闭弹窗，方便继续添加其他商品
+      // 清空已选中的商品
       setSelectedRows([]);
-      handleResetSearch();
+      // 刷新主列表
       fetchProducts();
     } catch (error) {
       message.error('添加商品失败');
@@ -714,18 +803,23 @@ export default function GuziProductList() {
       title: '选择',
       key: 'selection',
       width: 60,
-      render: (_, record) => (
-        <Checkbox
-          checked={selectedRows.some(r => r.title === record.title)}
-          onChange={(e) => {
-            if (e.target.checked) {
-              setSelectedRows(prev => [...prev, record]);
-            } else {
-              setSelectedRows(prev => prev.filter(r => r.title !== record.title));
-            }
-          }}
-        />
-      ),
+      render: (_, record) => {
+        const isAdded = addedProductTitles.has(record.title);
+        const isSelected = selectedRows.some(r => r.title === record.title);
+        return (
+          <Checkbox
+            checked={isSelected}
+            disabled={isAdded}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setSelectedRows(prev => [...prev, record]);
+              } else {
+                setSelectedRows(prev => prev.filter(r => r.title !== record.title));
+              }
+            }}
+          />
+        );
+      },
     },
     {
       title: '商品图片',
@@ -1049,25 +1143,29 @@ export default function GuziProductList() {
         width={1000}
         footer={[
           <div key="footer-info" style={{ display: 'flex', alignItems: 'center', gap: 8, float: 'left' }}>
-            <Tag color="blue">已选择: {selectedRows.length} / {searchResults.length} 个</Tag>
+            <Tag color="blue">已选择: {selectedRows.length} 个</Tag>
+            <Tag color="green">本次已添加: {addedProductTitles.size} 个</Tag>
+            <Tag color="default">第 {searchPagination.current} / {Math.ceil((searchPagination.total || searchResults.length) / searchPagination.pageSize) || 1} 页</Tag>
             <Button
               type="link"
               size="small"
               disabled={searchResults.length === 0}
               onClick={() => {
-                if (selectedRows.length === searchResults.length) {
+                // 全选时排除已添加的商品
+                const availableRows = searchResults.filter(r => !addedProductTitles.has(r.title));
+                if (selectedRows.length === availableRows.length) {
                   setSelectedRows([]);
                 } else {
-                  setSelectedRows([...searchResults]);
+                  setSelectedRows(availableRows);
                 }
               }}
             >
-              {selectedRows.length === searchResults.length ? '取消全选' : '全选'}
+              {selectedRows.length === searchResults.filter(r => !addedProductTitles.has(r.title)).length ? '取消全选' : '全选'}
             </Button>
             <Button
               type="link"
               size="small"
-              disabled={searchResults.length === 0 || selectedRows.length === 0}
+              disabled={selectedRows.length === 0}
               onClick={() => setSelectedRows([])}
             >
               反选
@@ -1142,6 +1240,18 @@ export default function GuziProductList() {
             >
               搜索
             </Button>
+            <Select
+              value={searchSort}
+              onChange={(val) => handleSortChange(val)}
+              size="middle"
+              style={{ width: 140 }}
+              options={[
+                { label: '佣金率优先', value: 'tk_rate_des' },
+                { label: '销量优先', value: 'total_sales_des' },
+                { label: '价格从低到高', value: 'price_asc' },
+                { label: '价格从高到低', value: 'price_des' },
+              ]}
+            />
           </div>
 
           {/* 组合搜索预览 */}
@@ -1176,8 +1286,17 @@ export default function GuziProductList() {
               columns={searchColumns}
               dataSource={searchResults}
               rowKey={(record) => record.title}
-              pagination={false}
-              scroll={{ x: 800 }}
+              rowClassName={(record) => addedProductTitles.has(record.title) ? 'added-product-row' : ''}
+              pagination={{
+                current: searchPagination.current,
+                pageSize: searchPagination.pageSize,
+                total: searchPagination.total || searchResults.length,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total) => `共 ${total} 条`,
+                onChange: handleSearchPageChange,
+              }}
+              scroll={{ x: 800, y: 360 }}
               size="small"
             />
           ) : searchKeyword ? (
@@ -2005,6 +2124,16 @@ export default function GuziProductList() {
         /* 获取详情弹窗 */
         .fetch-detail-confirm {
           padding: 8px 0;
+        }
+
+        /* 已添加商品的行样式 */
+        .added-product-row {
+          opacity: 0.6;
+          background-color: rgba(82, 196, 26, 0.08) !important;
+        }
+
+        .added-product-row:hover td {
+          background-color: rgba(82, 196, 26, 0.12) !important;
         }
 
         .fetch-detail-confirm .confirm-product {

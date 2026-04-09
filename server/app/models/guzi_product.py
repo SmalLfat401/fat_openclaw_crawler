@@ -67,6 +67,14 @@ class ProductSearchItem(BaseModel):
     level_one_category_name: Optional[str] = Field(default=None, description="一级类目名称")
 
 
+class ProductSearchResponse(BaseModel):
+    """搜索结果分页响应"""
+    items: List[ProductSearchItem] = Field(..., description="商品列表")
+    total: int = Field(..., description="搜索结果总数")
+    page_no: int = Field(..., description="当前页码")
+    page_size: int = Field(..., description="每页条数")
+
+
 # ── CRUD 模型 ──────────────────────────────────────────────
 
 class GuziProductBase(BaseModel):

@@ -102,6 +102,14 @@ export interface MultiPlatformSearchResult {
   results: ProductSearchItem[];
 }
 
+// 搜索结果分页响应
+export interface ProductSearchResponse {
+  items: ProductSearchItem[];
+  total: number;
+  page_no: number;
+  page_size: number;
+}
+
 // 单个搜索结果项
 export interface ProductSearchItem {
   title: string;

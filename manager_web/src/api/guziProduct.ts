@@ -3,7 +3,7 @@ import type {
   GuziProduct,
   GuziProductCreate,
   GuziProductUpdate,
-  ProductSearchItem,
+  ProductSearchResponse,
   PlatformProduct,
   FetchItemDetailRequest,
   FetchItemDetailResponse,
@@ -75,18 +75,36 @@ export const guziProductApi = {
     return response.data.total;
   },
 
-  // 多平台搜索商品
-  searchProducts: async (keyword: string, platforms?: string[]) => {
-    const response = await apiClient.get<ProductSearchItem[]>('/guzi-products/search', { 
-      params: { keyword, platforms: platforms?.join(',') } 
+  // 多平台搜索商品（支持分页和排序）
+  searchProducts: async (params: {
+    keyword: string;
+    platforms?: string[];
+    page_no?: number;
+    page_size?: number;
+    sort?: string;
+  }) => {
+    const response = await apiClient.get<ProductSearchResponse>('/guzi-products/search', { 
+      params: { 
+        keyword: params.keyword, 
+        platforms: params.platforms?.join(','),
+        page_no: params.page_no || 1,
+        page_size: params.page_size || 20,
+        sort: params.sort || 'tk_rate_des',
+      } 
     });
     return response.data;
   },
 
-  // 阿里妈妈搜索商品（兼容旧版）
-  searchAlimama: async (keyword: string) => {
-    const response = await apiClient.get<ProductSearchItem[]>('/guzi-products/search', { 
-      params: { keyword, platforms: 'alimama' } 
+  // 阿里妈妈搜索商品（支持分页和排序）
+  searchAlimama: async (keyword: string, pageNo: number = 1, pageSize: number = 20, sort: string = 'tk_rate_des'): Promise<ProductSearchResponse> => {
+    const response = await apiClient.get<ProductSearchResponse>('/guzi-products/search', { 
+      params: { 
+        keyword, 
+        platforms: 'alimama',
+        page_no: pageNo,
+        page_size: pageSize,
+        sort,
+      } 
     });
     return response.data;
   },
