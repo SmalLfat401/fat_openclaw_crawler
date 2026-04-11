@@ -273,9 +273,7 @@ const CalendarPage: React.FC = () => {
 
   return (
     <div className="calendar-page">
-      <NavBar onBack={() => navigate(-1)} />
-
-      {/* Header */}
+     {/* Header */}
       <div className="cal-header">
         <div className="header-top">
           <div>

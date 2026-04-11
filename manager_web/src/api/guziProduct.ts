@@ -10,7 +10,7 @@ import type {
 } from '../types/guziProduct';
 
 export const guziProductApi = {
-  // 获取所有谷子商品
+  // 获取所有谷子商品（管理端不过滤H5隐藏标签）
   getProducts: async (params?: {
     skip?: number;
     limit?: number;
@@ -19,7 +19,10 @@ export const guziProductApi = {
     ip_tag?: string;
     category_tag?: string;
   }) => {
-    const response = await apiClient.get<GuziProduct[]>('/guzi-products', { params });
+    // 管理端默认不过滤 H5 隐藏标签，否则无法管理包含隐藏标签的商品
+    const response = await apiClient.get<GuziProduct[]>('/guzi-products', {
+      params: { ...params, h5_filter: false },
+    });
     return response.data;
   },
 
@@ -65,13 +68,15 @@ export const guziProductApi = {
     return response.data;
   },
 
-  // 获取商品总数
+  // 获取商品总数（管理端不过滤H5隐藏标签）
   getProductCount: async (params?: {
     is_active?: boolean;
     ip_tag?: string;
     category_tag?: string;
   }) => {
-    const response = await apiClient.get<{ total: number }>('/guzi-products/count', { params });
+    const response = await apiClient.get<{ total: number }>('/guzi-products/count', {
+      params: { ...params, h5_filter: false },
+    });
     return response.data.total;
   },
 
@@ -124,6 +129,15 @@ export const guziProductApi = {
     const response = await apiClient.post<FetchItemDetailResponse>(
       '/guzi-products/fetch-detail',
       params
+    );
+    return response.data;
+  },
+
+  // 批量获取商品详情并填充到谷子商品
+  batchFetchItemDetail: async (productIds: string[], generateLinks: boolean = true) => {
+    const response = await apiClient.post<BatchFetchDetailResponse>(
+      '/guzi-products/batch-fetch-detail',
+      { product_ids: productIds, generate_links: generateLinks }
     );
     return response.data;
   },

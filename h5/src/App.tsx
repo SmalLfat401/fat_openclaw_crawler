@@ -5,20 +5,17 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { initRem } from '@/utils/rem';
 import TabBar from '@/components/TabBar';
-import HomePage from '@/pages/home';
 import CalendarPage from '@/pages/calendar';
 import ProductsPage from '@/pages/products';
 import ProductDetailPage from '@/pages/products/ProductDetail';
-import ProfilePage from '@/pages/profile';
-import './styles/global.scss';
+import GlossaryPage from '@/pages/glossary';
 
 // 路由配置
 const routes = [
-  { path: '/', component: HomePage },
   { path: '/calendar', component: CalendarPage },
   { path: '/products', component: ProductsPage },
   { path: '/product/:id', component: ProductDetailPage },
-  { path: '/profile', component: ProfilePage },
+  { path: '/glossary', component: GlossaryPage },
 ];
 
 function AppContent() {
@@ -26,8 +23,15 @@ function AppContent() {
   const location = useLocation();
 
   // 底部 TabBar 白名单
-  const tabBarRoutes = ['/', '/calendar', '/products', '/profile'];
+  const tabBarRoutes = ['/calendar', '/products', '/glossary'];
   const showTabBar = tabBarRoutes.includes(location.pathname);
+
+  // 默认首页跳转到 /products
+  React.useEffect(() => {
+    if (location.pathname === '/') {
+      navigate('/products', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   return (
     <div className="app">

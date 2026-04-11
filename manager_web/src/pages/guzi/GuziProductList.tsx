@@ -195,6 +195,24 @@ export default function GuziProductList() {
     };
   } | null>(null);
 
+  // 批量获取详情相关状态
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [batchFetchModalVisible, setBatchFetchModalVisible] = useState(false);
+  const [batchFetchLoading, setBatchFetchLoading] = useState(false);
+  const [batchFetchResults, setBatchFetchResults] = useState<{
+    total: number;
+    success_count: number;
+    skipped_count: number;
+    failed_count: number;
+    results: Array<{
+      product_id: string;
+      status: string;
+      message?: string;
+    }>;
+  } | null>(null);
+  // 是否包含已爬取过的数据进行刷新（默认不包含，仅处理未爬取的）
+  const [batchFetchIncludeFetched, setBatchFetchIncludeFetched] = useState(false);
+
   // 获取商品列表
   const fetchProducts = async () => {
     setLoading(true);
@@ -214,10 +232,13 @@ export default function GuziProductList() {
         category_tag: selectedCategoryTag,
       });
       setPagination(prev => ({ ...prev, total }));
+      // 刷新数据时清空选中状态，避免旧选择与新数据混淆
+      setSelectedRowKeys([]);
     } catch (error) {
       // 后端未实现时使用模拟数据
       setProducts(mockProducts);
       setPagination(prev => ({ ...prev, total: mockProducts.length }));
+      setSelectedRowKeys([]);
     } finally {
       setLoading(false);
     }
@@ -476,7 +497,28 @@ export default function GuziProductList() {
       return;
     }
     setFetchingDetailId(product.id);
-    setFetchDetailResult(null);
+    // detail_fetched=True 表示之前调用过详情接口且已保存数据
+    // detail_fetched=False 表示没有调用过详情接口
+    if (product.detail_fetched === true) {
+      setFetchDetailResult({
+        success: true,
+        message: '以下是之前已保存的商品详情',
+        detail: {
+          title: product.title,
+          price: alimamaPlatform.price,
+          commission_rate: alimamaPlatform.commission_rate,
+          commission_amount: alimamaPlatform.commission_amount,
+          volume: alimamaPlatform.volume,
+          shop_title: alimamaPlatform.shop_title,
+          free_shipment: alimamaPlatform.free_shipment,
+          is_prepay: alimamaPlatform.is_prepay,
+          promotion_tags: alimamaPlatform.promotion_tags,
+          small_images_count: product.small_images?.length,
+        },
+      });
+    } else {
+      setFetchDetailResult(null);
+    }
     setFetchDetailModalVisible(true);
   };
 
@@ -510,6 +552,43 @@ export default function GuziProductList() {
       });
     } finally {
       setFetchDetailLoading(false);
+    }
+  };
+
+  // 打开批量获取详情弹窗
+  const handleOpenBatchFetchDetail = () => {
+    setBatchFetchResults(null);
+    setBatchFetchIncludeFetched(false);
+    setBatchFetchModalVisible(true);
+  };
+
+  // 确认批量获取详情
+  const handleConfirmBatchFetchDetail = async () => {
+    if (selectedRowKeys.length === 0) return;
+
+    // 根据选项过滤：排除已爬取过的商品（除非明确选择包含）
+    let targetIds = selectedRowKeys as string[];
+    if (!batchFetchIncludeFetched) {
+      targetIds = targetIds.filter(id => {
+        const product = products.find(p => p.id === id);
+        return product?.detail_fetched !== true;
+      });
+      if (targetIds.length === 0) {
+        message.warning('所选商品已全部获取过详情，请勾选"包含已爬取数据"重新尝试');
+        return;
+      }
+    }
+
+    setBatchFetchLoading(true);
+    try {
+      const result = await guziProductApi.batchFetchItemDetail(targetIds, true);
+      setBatchFetchResults(result);
+      message.success(`批量获取完成：成功 ${result.success_count} 个`);
+      fetchProducts();
+    } catch (error) {
+      message.error((error as Error).message || '批量获取详情失败');
+    } finally {
+      setBatchFetchLoading(false);
     }
   };
 
@@ -752,14 +831,14 @@ export default function GuziProductList() {
       fixed: 'right',
       render: (_, record: GuziProduct) => (
         <Space size="small">
-          <Tooltip title={record.detail_fetched ? '查看商品详情' : '从淘宝获取最新详情并填充'}>
+          <Tooltip title={record.detail_fetched === true ? '查看商品详情' : '从淘宝获取最新详情并填充'}>
             <Button
               type="default"
               size="small"
-              icon={record.detail_fetched ? <StarOutlined /> : <CloudSyncOutlined />}
+              icon={record.detail_fetched === true ? <StarOutlined /> : <CloudSyncOutlined />}
               onClick={() => handleOpenFetchDetail(record)}
             >
-              {record.detail_fetched ? '查看详情' : '抓取详情'}
+              {record.detail_fetched === true ? '查看详情' : '抓取详情'}
             </Button>
           </Tooltip>
           <Tooltip title="编辑标签">
@@ -1014,8 +1093,17 @@ export default function GuziProductList() {
         </div>
         <div className="header-actions">
           <Space>
-            <Button 
-              type="primary" 
+            {selectedRowKeys.length > 0 && (
+              <Button
+                type="default"
+                icon={<CloudSyncOutlined />}
+                onClick={() => setBatchFetchModalVisible(true)}
+              >
+                批量获取详情 ({selectedRowKeys.length})
+              </Button>
+            )}
+            <Button
+              type="primary"
               icon={<CloudDownloadOutlined />}
               onClick={() => setSearchModalVisible(true)}
             >
@@ -1117,8 +1205,17 @@ export default function GuziProductList() {
         <Table
           columns={columns}
           dataSource={products}
-          rowKey="_id"
+          rowKey="id"
           loading={loading}
+          rowSelection={{
+            selectedRowKeys,
+            onChange: (keys) => setSelectedRowKeys(keys),
+            selections: [
+              Table.SELECTION_ALL,
+              Table.SELECTION_INVERT,
+              Table.SELECTION_NONE,
+            ],
+          }}
           pagination={{
             ...pagination,
             onChange: (page, pageSize) => setPagination({ ...pagination, current: page, pageSize }),
@@ -1686,7 +1783,7 @@ export default function GuziProductList() {
             <CloudSyncOutlined />
             <span>{(() => {
               const p = fetchingDetailId ? products.find(x => x.id === fetchingDetailId) : null;
-              return p?.detail_fetched ? '商品详情' : '获取商品详情';
+              return p?.detail_fetched === true ? '商品详情' : '获取商品详情';
             })()}</span>
           </div>
         }
@@ -1723,7 +1820,7 @@ export default function GuziProductList() {
               >
                 {(() => {
                   const p = fetchingDetailId ? products.find(x => x.id === fetchingDetailId) : null;
-                  return p?.detail_fetched ? '刷新详情' : '确认获取';
+                  return p?.detail_fetched === true ? '刷新详情' : '确认获取';
                 })()}
               </Button>,
             ]
@@ -1864,6 +1961,142 @@ export default function GuziProductList() {
             </div>
           );
         })()}
+      </Modal>
+
+      {/* 批量获取详情弹窗 */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CloudSyncOutlined />
+            <span>批量获取商品详情</span>
+          </div>
+        }
+        open={batchFetchModalVisible}
+        onCancel={() => {
+          setBatchFetchModalVisible(false);
+          setBatchFetchResults(null);
+        }}
+        footer={
+          batchFetchResults ? (
+            <Button onClick={() => {
+              setBatchFetchModalVisible(false);
+              setBatchFetchResults(null);
+            }}>
+              关闭
+            </Button>
+          ) : (
+            [
+              <Button key="cancel" onClick={() => {
+                setBatchFetchModalVisible(false);
+                setBatchFetchResults(null);
+              }}>
+                取消
+              </Button>,
+              <Button
+                key="confirm"
+                type="primary"
+                icon={<CloudSyncOutlined />}
+                loading={batchFetchLoading}
+                onClick={handleConfirmBatchFetchDetail}
+              >
+                确认批量获取 ({selectedRowKeys.length} 个)
+              </Button>,
+            ]
+          )
+        }
+        width={600}
+      >
+        {batchFetchResults ? (
+          <div className="batch-fetch-results">
+            {/* 结果统计 */}
+            <div className="batch-summary">
+              <div className="summary-stat success">
+                <span className="stat-value">{batchFetchResults.success_count}</span>
+                <span className="stat-label">成功</span>
+              </div>
+              <div className="summary-stat skipped">
+                <span className="stat-value">{batchFetchResults.skipped_count}</span>
+                <span className="stat-label">跳过</span>
+              </div>
+              <div className="summary-stat failed">
+                <span className="stat-value">{batchFetchResults.failed_count}</span>
+                <span className="stat-label">失败</span>
+              </div>
+            </div>
+
+            {/* 失败和跳过的详情列表 */}
+            {(batchFetchResults.failed_count > 0 || batchFetchResults.skipped_count > 0) && (
+              <div className="batch-detail-list">
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>处理详情:</div>
+                {batchFetchResults.results
+                  .filter(r => r.status !== 'success')
+                  .map(r => (
+                    <div
+                      key={r.product_id}
+                      className={`batch-item ${r.status}`}
+                    >
+                      <span className="batch-item-id" title={r.product_id}>
+                        {r.product_id.substring(0, 8)}...
+                      </span>
+                      <span className="batch-item-status">
+                        {r.status === 'skipped' ? '跳过' : '失败'}
+                      </span>
+                      <span className="batch-item-message">
+                        {r.message || (r as any).detail?.title || '-'}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="batch-fetch-confirm">
+            <div className="confirm-desc">
+              {/* 统计信息 */}
+              <div className="batch-fetch-stats">
+                <div className="stat-item">
+                  <span className="stat-num">{selectedRowKeys.length}</span>
+                  <span className="stat-text">已选商品</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-num">
+                    {selectedRowKeys.filter(id => {
+                      const product = products.find(p => p.id === id);
+                      return product?.detail_fetched === true;
+                    }).length}
+                  </span>
+                  <span className="stat-text">已爬取</span>
+                </div>
+                <div className="stat-item highlight">
+                  <span className="stat-num">
+                    {selectedRowKeys.filter(id => {
+                      const product = products.find(p => p.id === id);
+                      return product?.detail_fetched !== true;
+                    }).length}
+                  </span>
+                  <span className="stat-text">待处理</span>
+                </div>
+              </div>
+
+              {/* 包含已爬取选项 */}
+              <div className="batch-fetch-option">
+                <Checkbox
+                  checked={batchFetchIncludeFetched}
+                  onChange={(e) => setBatchFetchIncludeFetched(e.target.checked)}
+                >
+                  包含已爬取过的数据（用于刷新最新信息）
+                </Checkbox>
+              </div>
+
+              <ul style={{ marginTop: 12 }}>
+                <li>从淘宝联盟获取每个商品的最新详情</li>
+                <li>同时生成淘口令（保留已有链接）</li>
+                <li>智能合并数据（关键字段不会被覆盖）</li>
+                <li>标记 detail_fetched=True</li>
+              </ul>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <style>{`
@@ -2202,6 +2435,173 @@ export default function GuziProductList() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        /* 批量获取详情弹窗样式 */
+        .batch-fetch-confirm .confirm-desc {
+          font-size: 13px;
+          color: #9ca3af;
+        }
+
+        .batch-fetch-confirm .confirm-desc ul {
+          margin: 8px 0;
+          padding-left: 20px;
+        }
+
+        .batch-fetch-confirm .confirm-desc li {
+          margin-bottom: 4px;
+        }
+
+        .batch-fetch-results {
+          padding: 8px 0;
+        }
+
+        .batch-summary {
+          display: flex;
+          gap: 16px;
+          justify-content: center;
+          margin-bottom: 20px;
+          padding: 16px;
+          background: rgba(17, 24, 39, 0.5);
+          border-radius: 8px;
+        }
+
+        .summary-stat {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 12px 24px;
+          border-radius: 8px;
+        }
+
+        .summary-stat.success {
+          background: rgba(82, 196, 26, 0.1);
+        }
+
+        .summary-stat.skipped {
+          background: rgba(250, 173, 20, 0.1);
+        }
+
+        .summary-stat.failed {
+          background: rgba(255, 77, 79, 0.1);
+        }
+
+        .summary-stat .stat-value {
+          font-size: 24px;
+          font-weight: 700;
+        }
+
+        .summary-stat.success .stat-value {
+          color: #52c41a;
+        }
+
+        .summary-stat.skipped .stat-value {
+          color: #faad14;
+        }
+
+        .summary-stat.failed .stat-value {
+          color: #ff4d4f;
+        }
+
+        .summary-stat .stat-label {
+          font-size: 12px;
+          color: #8c8c8c;
+          margin-top: 4px;
+        }
+
+        .batch-detail-list {
+          max-height: 200px;
+          overflow-y: auto;
+        }
+
+        .batch-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          border-radius: 4px;
+          margin-bottom: 4px;
+          font-size: 12px;
+        }
+
+        .batch-item.skipped {
+          background: rgba(250, 173, 20, 0.1);
+        }
+
+        .batch-item.failed {
+          background: rgba(255, 77, 79, 0.1);
+        }
+
+        .batch-item-id {
+          font-family: monospace;
+          color: #8c8c8c;
+        }
+
+        .batch-item-status {
+          font-weight: 600;
+        }
+
+        .batch-item.skipped .batch-item-status {
+          color: #faad14;
+        }
+
+        .batch-item.failed .batch-item-status {
+          color: #ff4d4f;
+        }
+
+        .batch-item-message {
+          color: #9ca3af;
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        /* 批量获取详情弹窗 - 确认页样式 */
+        .batch-fetch-stats {
+          display: flex;
+          gap: 12px;
+          justify-content: center;
+          margin-bottom: 16px;
+          padding: 12px;
+          background: rgba(17, 24, 39, 0.5);
+          border-radius: 8px;
+        }
+
+        .batch-fetch-stats .stat-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 8px 16px;
+          border-radius: 6px;
+        }
+
+        .batch-fetch-stats .stat-item.highlight {
+          background: rgba(82, 196, 26, 0.15);
+        }
+
+        .batch-fetch-stats .stat-num {
+          font-size: 20px;
+          font-weight: 700;
+          color: #00f0ff;
+        }
+
+        .batch-fetch-stats .stat-item.highlight .stat-num {
+          color: #52c41a;
+        }
+
+        .batch-fetch-stats .stat-text {
+          font-size: 12px;
+          color: #8c8c8c;
+          margin-top: 2px;
+        }
+
+        .batch-fetch-option {
+          padding: 12px;
+          background: rgba(0, 240, 255, 0.05);
+          border: 1px solid rgba(0, 240, 255, 0.15);
+          border-radius: 6px;
+          margin-top: 12px;
         }
       `}</style>
     </div>

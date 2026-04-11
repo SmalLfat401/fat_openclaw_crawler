@@ -227,9 +227,9 @@ const ProductsPage: React.FC = () => {
 
   return (
     <div className="products-page">
-      {/* 固定顶部导航 */}
+      {/* 固定顶部导航（tabs 页无返回按钮） */}
       <div className="navbar-fixed">
-        <NavBar onBack={() => navigate(-1)}>精选好物</NavBar>
+        <NavBar backIcon={false}>精选好物</NavBar>
       </div>
 
       {/* SearchBar + 标签筛选（sticky 整体吸附在导航栏下方） */}

@@ -19,6 +19,7 @@ from app.api import (
     weibo_crawler_task,
     llm_router,
     intel_monitor as intel_monitor_router,
+    h5_glossary_router,
 )
 from app.crawler.playwright_client import PlaywrightClient
 from app.config.settings import settings
@@ -111,6 +112,7 @@ app.include_router(guzi_tags_router, prefix="/api/v1", tags=["谷子标签管理
 app.include_router(weibo_crawler_task.router, prefix="/api/v1", tags=["微博爬虫任务"])
 app.include_router(llm_router, prefix="/api/v1", tags=["LLM 对接"])
 app.include_router(intel_monitor_router.router, prefix="/api/v1", tags=["热点追踪系统"])
+app.include_router(h5_glossary_router, prefix="/api/v1", tags=["H5 术语百科"])
 
 
 @app.get("/")

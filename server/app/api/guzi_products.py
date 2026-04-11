@@ -16,7 +16,7 @@ from app.database.platform_config_dao import platform_config_dao
 from app.database.guzi_product_dao import guzi_product_dao
 from app.integrations.alimama.top_client import TopClient
 from app.integrations.alimama.search import search_products as alimama_search
-from app.integrations.alimama.link_gen import generate_promotion_links, LinkGenOptions
+from app.integrations.alimama.link_gen import generate_promotion_links
 from app.models.guzi_product import (
     GuziProduct,
     GuziProductCreate,
@@ -97,11 +97,9 @@ def _is_meaningful(v: Any) -> bool:
 # 这些字段应由搜索/转链接口维护
 _PROTECTED_PLATFORM_FIELDS = frozenset({
     "url",
-    "short_link",
     "tkl",
     "tkl_text",
     "link_generated_at",
-    "link_expires_at",
     "real_post_fee",
 })
 
@@ -221,7 +219,7 @@ async def search_guzi_products(
             else:
                 raise HTTPException(status_code=502, detail=f"阿里妈妈搜索失败: {e}")
 
-        # ── 为每个结果生成短链接 + 淘口令 ─────────────────────────────────
+        # ── 为每个结果生成淘口令 ──────────────────────────────────────
         link_gen_result = generate_promotion_links(client, items)
 
         # ── 组装返回结果 ─────────────────────────────────────────────────
@@ -231,10 +229,8 @@ async def search_guzi_products(
                 platform_name="淘宝",
                 platform_product_id=it.get("platform_product_id", ""),
                 url=it.get("url", ""),
-                short_link=link_res.short_link,
                 tkl=link_res.tkl,
                 link_generated_at=link_res.generated_at,
-                link_expires_at=link_res.short_link_expires_at,
                 price=float(it.get("price") or 0.0),
                 original_price=it.get("original_price"),
                 zk_final_price=it.get("zk_final_price"),
@@ -487,15 +483,9 @@ async def generate_links_for_products(
                 continue
             if not regenerate:
                 # 已有有效链接则跳过
-                if platform.short_link and platform.tkl:
-                    if platform.link_expires_at:
-                        from datetime import datetime, timezone
-                        if platform.link_expires_at > datetime.now(timezone.utc):
-                            skipped_count += 1
-                            continue
-                    else:
-                        skipped_count += 1
-                        continue
+                if platform.tkl:
+                    skipped_count += 1
+                    continue
 
             url = platform.url or ""
             if not url:
@@ -520,10 +510,8 @@ async def generate_links_for_products(
         updated_platforms = list(product.platforms)
         for link_res, p_idx in zip(link_result.results, platform_indices):
             p = updated_platforms[p_idx]
-            p.short_link = link_res.short_link
             p.tkl = link_res.tkl
             p.link_generated_at = link_res.generated_at
-            p.link_expires_at = link_res.short_link_expires_at
 
         from app.models.guzi_product import GuziProductUpdate
         guzi_product_dao.update(product.id, GuziProductUpdate(platforms=updated_platforms))
@@ -620,7 +608,6 @@ async def generate_tkl_for_platform(
     updated_pp["tkl"] = password_simple
     updated_pp["tkl_text"] = password_simple
     updated_pp["link_generated_at"] = datetime.now(timezone.utc)
-    updated_pp["link_expires_at"] = None
     updated_platforms[platform_index] = PlatformProduct(**updated_pp)
 
     from app.models.guzi_product import GuziProductUpdate
@@ -640,7 +627,22 @@ class FetchItemDetailRequest(PydanticBaseModel):
     """获取商品详情的请求参数"""
     item_id: str = Field(..., description="淘宝商品ID（num_iid），支持原始数字ID或加密后的字符串ID")
     product_id: Optional[str] = Field(None, description="已有谷子商品ID（可选）。不传则创建新商品；传入则向该商品的 platforms 字段中填充/追加 alimama 平台数据")
-    generate_links: bool = Field(True, description="是否同时生成短链接和淘口令")
+    generate_links: bool = Field(True, description="是否生成淘口令")
+
+
+class BatchFetchDetailRequest(PydanticBaseModel):
+    """批量获取商品详情的请求参数"""
+    product_ids: List[str] = Field(..., description="谷子商品ID列表", min_length=1)
+    generate_links: bool = Field(True, description="是否生成淘口令")
+
+
+class BatchFetchDetailResponse(PydanticBaseModel):
+    """批量获取商品详情的响应"""
+    total: int = Field(..., description="请求的商品总数")
+    success_count: int = Field(..., description="成功数量")
+    skipped_count: int = Field(..., description="跳过数量（无alimama平台数据）")
+    failed_count: int = Field(..., description="失败数量")
+    results: List[dict] = Field(default_factory=list, description="每个商品的处理结果")
 
 
 class FetchItemDetailResponse(PydanticBaseModel):
@@ -715,26 +717,39 @@ async def fetch_item_detail_and_fill(
     pict_url = detail.get("pict_url") or ""
     small_images = detail.get("small_images") or []
 
-    # ── 3. 生成推广链接（短链接 + 淘口令）─────────────────────────────
-    short_link_value: Optional[str] = None
+    # ── 3. 获取商品的推广链接（用于生成淘口令） ────────────────────────
+    alimama_platform = None
+    if body.product_id:
+        product = guzi_product_dao.find_by_id(body.product_id)
+        if product:
+            for platform in product.platforms:
+                if platform.platform_id == "alimama":
+                    alimama_platform = platform
+                    break
+
+    # ── 4. 生成淘口令 ────────────────────────────────────────────────
     tkl_value: Optional[str] = None
     link_generated_at_value: Optional[datetime] = None
-    link_expires_at_value: Optional[datetime] = None
 
-    if body.generate_links:
-        item_url = detail.get("item_url") or ""
-        if not item_url:
-            item_url = f"https://uland.taobao.com/item/detail?id={item_id_str}"
-        link_gen_result = generate_promotion_links(
-            client,
-            items=[{"click_url": item_url, "title": title, "pict_url": pict_url}],
-        )
-        if link_gen_result.results:
-            link_res = link_gen_result.results[0]
-            short_link_value = link_res.short_link
-            tkl_value = link_res.tkl
-            link_generated_at_value = link_res.generated_at
-            link_expires_at_value = link_res.short_link_expires_at
+    if body.generate_links and alimama_platform:
+        # 淘口令生成必须使用推广链接（包含 adzone_id 的 s.click.taobao.com/xxx）
+        # 不能用 item_url（商品详情页链接）或 uland.taobao.com 普通链接
+        click_url = alimama_platform.url or ""
+        if not click_url:
+            logger.warning(f"[fetch-detail] 商品 {item_id_str} 没有推广链接，跳过淘口令生成")
+        else:
+            # 标准化 URL
+            if click_url.startswith("//"):
+                click_url = "https:" + click_url
+
+            link_gen_result = generate_promotion_links(
+                client,
+                items=[{"click_url": click_url, "title": title, "pict_url": pict_url}],
+            )
+            if link_gen_result.results:
+                link_res = link_gen_result.results[0]
+                tkl_value = link_res.tkl
+                link_generated_at_value = link_res.generated_at
 
     # ── 4. 构建 PlatformProduct（alimama） ────────────────────────────
     # 价格优先级: final_promotion_price > zk_final_price > reserve_price
@@ -772,11 +787,9 @@ async def fetch_item_detail_and_fill(
         "tk_total_sales": detail.get("tk_total_sales"),
         "promotion_tags": detail.get("promotion_tags") or [],
         "description": detail.get("short_title"),
-        "short_link": short_link_value,
         "tkl": tkl_value,
         "tkl_text": tkl_value,
         "link_generated_at": link_generated_at_value,
-        "link_expires_at": link_expires_at_value,
     }
 
     new_pp = PlatformProduct(**pp_dict)
@@ -852,4 +865,235 @@ async def fetch_item_detail_and_fill(
             "promotion_tags": detail.get("promotion_tags"),
             "small_images_count": len(small_images),
         },
+    )
+
+
+# ──────────────────────────────────────────────
+#  批量商品详情获取 & 字段填充
+# ──────────────────────────────────────────────
+
+@router.post("/batch-fetch-detail", response_model=BatchFetchDetailResponse)
+async def batch_fetch_item_detail_and_fill(
+    body: BatchFetchDetailRequest,
+):
+    """
+    批量获取商品详情并填充到 guzi_products 集合中。
+
+    工作流程（与 /fetch-detail 单条接口保持一致）：
+      1. 初始化阿里妈妈 client
+      2. 遍历每个 product_id，提取 alimama platform_product_id
+      3. 调用 get_item_detail 获取详情
+      4. 生成淘口令（如 generate_links=True）
+      5. 使用 _smart_merge_platform 智能合并平台数据
+      6. 保存到数据库并标记 detail_fetched=True
+
+    批量处理优势：
+      - 一次API调用获取多个商品详情（阿里妈妈接口支持批量）
+      - 减少网络开销，提高效率
+      - 统一状态标记，便于后期维护
+    """
+    from app.integrations.alimama.item_detail import get_item_detail
+    from app.integrations.alimama.link_gen import generate_promotion_links
+    from app.models.guzi_product import GuziProductUpdate
+
+    # ── 1. 初始化阿里妈妈 client ───────────────────────────────────────
+    cfg = platform_config_dao.find_by_platform_id("alimama")
+    if not cfg:
+        raise HTTPException(status_code=404, detail="未找到阿里妈妈平台配置")
+    if not cfg.app_key or not cfg.app_secret:
+        raise HTTPException(status_code=400, detail="阿里妈妈 AppKey/AppSecret 未配置")
+    if not cfg.is_active:
+        raise HTTPException(status_code=400, detail="阿里妈妈平台未启用")
+
+    resolved_adzone_id = _parse_adzone_id_from_pid(cfg.pid) if cfg.pid else None
+    if not resolved_adzone_id:
+        raise HTTPException(status_code=400, detail="未找到有效的推广位ID，请检查PID配置")
+
+    client = TopClient(
+        app_key=cfg.app_key,
+        app_secret=cfg.app_secret,
+        adzone_id=resolved_adzone_id,
+    )
+
+    # ── 2. 准备批量处理 ───────────────────────────────────────────────
+    success_count = 0
+    skipped_count = 0
+    failed_count = 0
+    results: List[dict] = []
+
+    # 遍历每个商品
+    for product_id in body.product_ids:
+        try:
+            # 获取商品
+            product = guzi_product_dao.find_by_id(product_id)
+            if not product:
+                failed_count += 1
+                results.append({
+                    "product_id": product_id,
+                    "status": "failed",
+                    "message": "商品不存在",
+                })
+                continue
+
+            # 提取 alimama 平台的 platform_product_id
+            alimama_platform = None
+            alimama_platform_index = None
+            for idx, platform in enumerate(product.platforms):
+                if platform.platform_id == "alimama":
+                    alimama_platform = platform
+                    alimama_platform_index = idx
+                    break
+
+            if not alimama_platform or not alimama_platform.platform_product_id:
+                skipped_count += 1
+                results.append({
+                    "product_id": product_id,
+                    "status": "skipped",
+                    "message": "该商品没有淘宝平台数据或 platform_product_id 为空",
+                })
+                continue
+
+            item_id = alimama_platform.platform_product_id
+
+            # ── 3. 调用淘宝客商品详情接口 ──────────────────────────────
+            detail_result = get_item_detail(client, item_id)
+            if detail_result.get("error"):
+                failed_count += 1
+                results.append({
+                    "product_id": product_id,
+                    "status": "failed",
+                    "message": f"详情接口失败: {detail_result['error']}",
+                })
+                continue
+
+            detail = detail_result["item"]
+            if not detail:
+                failed_count += 1
+                results.append({
+                    "product_id": product_id,
+                    "status": "failed",
+                    "message": f"未找到商品 {item_id} 的详情",
+                })
+                continue
+
+            item_id_str = detail.get("item_id") or item_id
+            title = detail.get("title") or ""
+
+            # ── 4. 生成淘口令 ────────────────────────────────────────────
+            tkl_value: Optional[str] = None
+            link_generated_at_value: Optional[datetime] = None
+
+            if body.generate_links:
+                # 淘口令生成必须使用推广链接（包含 adzone_id 的 s.click.taobao.com/xxx）
+                # 不能用 item_url（商品详情页链接）或 uland.taobao.com 普通链接
+                click_url = alimama_platform.url or ""
+                if not click_url:
+                    # 没有推广链接则跳过淘口令生成
+                    logger.warning(f"[batch-fetch-detail] 商品 {item_id_str} 没有推广链接，跳过淘口令生成")
+                else:
+                    # 标准化 URL
+                    if click_url.startswith("//"):
+                        click_url = "https:" + click_url
+
+                    link_gen_result = generate_promotion_links(
+                        client,
+                        items=[{"click_url": click_url, "title": title, "pict_url": detail.get("pict_url", "")}],
+                    )
+                    if link_gen_result.results:
+                        link_res = link_gen_result.results[0]
+                        tkl_value = link_res.tkl
+                        link_generated_at_value = link_res.generated_at
+
+            # ── 5. 构建 PlatformProduct ───────────────────────────────────
+            price = (
+                detail.get("final_promotion_price")
+                or detail.get("zk_final_price")
+                or detail.get("reserve_price")
+                or 0.0
+            )
+
+            pp_dict: Dict[str, Any] = {
+                "platform_id": "alimama",
+                "platform_name": "淘宝",
+                "platform_product_id": item_id_str,
+                "url": detail.get("item_url") or "",
+                "price": float(price),
+                "original_price": detail.get("reserve_price"),
+                "zk_final_price": detail.get("zk_final_price"),
+                "commission_rate": float(detail.get("commission_rate") or 0.0),
+                "commission_amount": float(detail.get("commission_amount") or 0.0),
+                "commission_type": None,
+                "coupon_amount": detail.get("coupon_amount"),
+                "coupon_url": detail.get("coupon_url"),
+                "coupon_share_url": detail.get("coupon_share_url"),
+                "shop_title": detail.get("shop_title"),
+                "seller_id": detail.get("seller_id"),
+                "user_type": detail.get("user_type"),
+                "provcity": detail.get("provcity"),
+                "real_post_fee": None,
+                "item_url": detail.get("item_url"),
+                "free_shipment": detail.get("free_shipment"),
+                "is_prepay": detail.get("is_prepay"),
+                "volume": detail.get("volume") or 0,
+                "annual_vol": detail.get("annual_vol"),
+                "tk_total_sales": detail.get("tk_total_sales"),
+                "promotion_tags": detail.get("promotion_tags") or [],
+                "description": detail.get("short_title"),
+                "tkl": tkl_value,
+                "tkl_text": tkl_value,
+                "link_generated_at": link_generated_at_value,
+            }
+
+            new_pp = PlatformProduct(**pp_dict)
+
+            # ── 6. 智能合并并保存 ─────────────────────────────────────────
+            updated_platforms = list(product.platforms)
+            platform_updated = False
+
+            if alimama_platform_index is not None:
+                # 智能合并：保留 url/link 等关键字段
+                existing = updated_platforms[alimama_platform_index].model_dump()
+                merged = _smart_merge_platform(existing, pp_dict)
+                updated_platforms[alimama_platform_index] = PlatformProduct(**merged)
+                platform_updated = True
+            else:
+                # 追加新平台
+                updated_platforms.append(new_pp)
+                platform_updated = True
+
+            guzi_product_dao.update(product_id, GuziProductUpdate(platforms=updated_platforms, detail_fetched=True))
+
+            success_count += 1
+            results.append({
+                "product_id": product_id,
+                "status": "success",
+                "platform_updated": platform_updated,
+                "detail": {
+                    "title": title,
+                    "price": price,
+                    "commission_rate": detail.get("commission_rate"),
+                    "commission_amount": detail.get("commission_amount"),
+                    "volume": detail.get("volume"),
+                    "shop_title": detail.get("shop_title"),
+                    "free_shipment": detail.get("free_shipment"),
+                    "is_prepay": detail.get("is_prepay"),
+                    "promotion_tags": detail.get("promotion_tags"),
+                    "small_images_count": len(detail.get("small_images") or []),
+                },
+            })
+
+        except Exception as e:
+            failed_count += 1
+            results.append({
+                "product_id": product_id,
+                "status": "failed",
+                "message": str(e),
+            })
+
+    return BatchFetchDetailResponse(
+        total=len(body.product_ids),
+        success_count=success_count,
+        skipped_count=skipped_count,
+        failed_count=failed_count,
+        results=results,
     )

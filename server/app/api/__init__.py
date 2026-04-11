@@ -12,6 +12,7 @@ from app.api.guzi_tags import router as guzi_tags_router
 from app.api.weibo_crawler_task import router as weibo_crawler_task_router
 from app.api.llm import router as llm_router
 from app.api.intel_monitor import router as intel_monitor_router
+from app.api.h5_glossary import router as h5_glossary_router
 
 __all__ = [
     "routes_router",
@@ -27,4 +28,5 @@ __all__ = [
     "weibo_crawler_task_router",
     "llm_router",
     "intel_monitor_router",
+    "h5_glossary_router",
 ]

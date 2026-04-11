@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { TabBar as ADMTabBar } from 'antd-mobile';
-import { HomeO, calendarO, cartO, userO } from '@/components/icons';
+import { calendarO, cartO, BookOpen } from '@/components/icons';
 
 interface TabBarProps {
   currentPath: string;
@@ -11,10 +11,9 @@ interface TabBarProps {
 }
 
 const tabs = [
-  { path: '/', title: '首页', icon: HomeO, activeIcon: 'home' },
   { path: '/calendar', title: '日历', icon: calendarO, activeIcon: 'calendar' },
   { path: '/products', title: '好物', icon: cartO, activeIcon: 'products' },
-  { path: '/profile', title: '我的', icon: userO, activeIcon: 'profile' },
+  { path: '/glossary', title: '科普', icon: BookOpen, activeIcon: 'glossary' },
 ];
 
 const TabBar: React.FC<TabBarProps> = ({ currentPath, onChange }) => {

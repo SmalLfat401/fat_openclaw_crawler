@@ -9,6 +9,8 @@ import type {
   GuziTag,
   HomeData,
   PlatformInfo,
+  H5GlossaryResponse,
+  H5GlossaryStats,
 } from '@/types';
 
 // 后端原始数据类型（用于转换）
@@ -398,6 +400,45 @@ export async function generateTkl(productId: string, platformIndex: number): Pro
   }
 }
 
+/**
+ * 获取术语百科列表（H5 接口，支持分页）
+ */
+export async function fetchGlossaryTerms(
+  page: number = 1,
+  pageSize: number = 20,
+  category?: string,
+  search?: string
+): Promise<H5GlossaryResponse | null> {
+  try {
+    const params: Record<string, any> = {
+      page,
+      page_size: pageSize,
+    };
+    if (category) {
+      params.category = category;
+    }
+    if (search) {
+      params.search = search;
+    }
+
+    const response = await apiClient.get<any>('/h5/glossary', { params });
+    return response as unknown as H5GlossaryResponse;
+  } catch (error) {
+    console.error('获取术语百科失败:', error);
+    return null;
+  }
+}
+
+export async function fetchGlossaryStats(): Promise<H5GlossaryStats | null> {
+  try {
+    const response = await apiClient.get<any>('/h5/glossary/stats');
+    return response as unknown as H5GlossaryStats;
+  } catch (error) {
+    console.error('获取术语统计数据失败:', error);
+    return null;
+  }
+}
+
 export default {
   fetchHomeData,
   fetchCalendarEvents,
@@ -408,4 +449,6 @@ export default {
   fetchAllTags,
   fetchNotices,
   generateTkl,
+  fetchGlossaryTerms,
+  fetchGlossaryStats,
 };

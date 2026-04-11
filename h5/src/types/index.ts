@@ -165,3 +165,31 @@ export interface HomeData {
   releases: GuziRelease[];
   products: GuziProductH5[];
 }
+
+/**
+ * H5 术语百科类型
+ */
+export type GlossaryCategory = 'guzi' | 'coser' | 'convention' | 'game';
+
+export interface H5GlossaryItem {
+  id: string;
+  term: string;
+  definition: string;
+  category: GlossaryCategory;
+  subcategory?: string;
+  examples?: string[];
+}
+
+export interface H5GlossaryStats {
+  total: number;
+  categories: Record<GlossaryCategory, number>;
+}
+
+export interface H5GlossaryResponse {
+  items: H5GlossaryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+  stats: H5GlossaryStats;
+}

@@ -173,3 +173,32 @@ export interface FetchItemDetailRequest {
   product_id?: string;             // 已有谷子商品ID（可选，不传则创建新商品）
   generate_links?: boolean;         // 是否同时生成短链接和淘口令
 }
+
+// 批量获取商品详情响应
+export interface BatchFetchDetailResponse {
+  total: number;                   // 请求的商品总数
+  success_count: number;           // 成功数量
+  skipped_count: number;           // 跳过数量（无alimama平台数据）
+  failed_count: number;            // 失败数量
+  results: BatchFetchDetailResult[];
+}
+
+// 单个商品的批量处理结果
+export interface BatchFetchDetailResult {
+  product_id: string;              // 谷子商品ID
+  status: 'success' | 'skipped' | 'failed'; // 处理状态
+  platform_updated?: boolean;       // platforms 是否被更新（仅 success 时有意义）
+  message?: string;                // 错误/跳过原因
+  detail?: {                       // 填充的字段摘要（仅 success 时有意义）
+    title?: string;
+    price?: number;
+    commission_rate?: number;
+    commission_amount?: number;
+    volume?: number;
+    shop_title?: string;
+    free_shipment?: boolean;
+    is_prepay?: boolean;
+    promotion_tags?: string[];
+    small_images_count?: number;
+  };
+}
