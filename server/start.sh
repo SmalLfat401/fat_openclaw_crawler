@@ -22,4 +22,5 @@ cd "$SCRIPT_DIR"
 
 # 启动 FastAPI 服务
 # uvicorn main:app --host 0.0.0.0 --port 8879 --reload
-uvicorn main:app  --port 8879 --reload
+# --timeout-graceful-shutdown: 优雅关闭超时时间（秒），超时后强制退出
+uvicorn main:app --port 8879 --reload --timeout-graceful-shutdown 10

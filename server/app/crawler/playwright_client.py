@@ -39,12 +39,32 @@ class PlaywrightClient:
     
     async def cleanup(self):
         """Cleanup Playwright resources."""
+        # Close context
         if self.context:
-            await self.context.close()
+            try:
+                await self.context.close()
+            except Exception as e:
+                print(f"Warning: Failed to close context: {e}")
+            finally:
+                self.context = None
+
+        # Close browser
         if self.browser:
-            await self.browser.close()
+            try:
+                await self.browser.close()
+            except Exception as e:
+                print(f"Warning: Failed to close browser: {e}")
+            finally:
+                self.browser = None
+
+        # Stop Playwright
         if self.playwright:
-            await self.playwright.stop()
+            try:
+                await self.playwright.stop()
+            except Exception as e:
+                print(f"Warning: Failed to stop Playwright: {e}")
+            finally:
+                self.playwright = None
     
     async def create_page(self, cookies: Optional[List[Dict[str, str]]] = None) -> Page:
         """Create a new page with optional cookies."""
