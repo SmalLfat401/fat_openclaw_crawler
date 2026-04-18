@@ -69,10 +69,10 @@ async def list_intel_events(
         limit = 2000  # 日历视图一次性获取当月（或范围）所有事件，上限2000条
 
     # 列表视图: 从今天开始，按分页返回
+    # 注意：强制使用服务器日期作为 start_date，避免前端时差导致日期错误
     if mode == "list":
         from datetime import date
-        if not start_date:
-            start_date = date.today().isoformat()
+        start_date = date.today().isoformat()
 
     intel_list, total = weibo_intel_dao.find_published_for_h5(
         skip=skip,

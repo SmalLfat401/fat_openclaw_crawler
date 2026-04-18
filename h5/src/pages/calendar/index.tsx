@@ -478,11 +478,18 @@ const CalendarPage: React.FC = () => {
             <>
               {listData.map(({ date, events: dayEvents }) => {
                 const isToday = date === today;
+                const dateObj = dayjs(date);
+                // 跨年数据需要显示年份
+                const isCurrentYear = dateObj.year() === dayjs().year();
+                const dateStr = isCurrentYear
+                  ? `${dateObj.month() + 1}月${+dateObj.format('DD')}日`
+                  : `${dateObj.year()}年${dateObj.month() + 1}月${+dateObj.format('DD')}日`;
+
                 return (
                   <div key={date} className="list-section">
                     <div className="list-date-header">
-                      {dayjs(date).month() + 1}月{+dayjs(date).format('DD')}日
-                      {' 周' + WEEKDAY_NAMES[dayjs(date).day()]}
+                      {dateStr}
+                      {' 周' + WEEKDAY_NAMES[dateObj.day()]}
                       {isToday && <span className="list-today-badge">今天</span>}
                     </div>
                     <div className="event-list">
