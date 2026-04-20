@@ -83,6 +83,10 @@ const CalendarPage: React.FC = () => {
 
   const [curYear, setCurYear]   = useState(dayjs().year());
   const [curMonth, setCurMonth] = useState(dayjs().month()); // 0-indexed
+
+  // 三年范围限制：去年 ~ 今年 ~ 明年
+  const minYear = dayjs().year() - 1;
+  const maxYear = dayjs().year() + 1;
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [curFilter, setCurFilter] = useState<FilterType>('all');
   const [curMode, setCurMode] = useState<'cal' | 'list'>('cal');
@@ -156,12 +160,14 @@ const CalendarPage: React.FC = () => {
     setCurCategory(filter);
   };
 
-  // 切换月份时重新加载（仅日历视图）
+  // 切换月份时重新加载（仅日历视图），限制在三年范围内
   const changeMonth = (delta: number) => {
     let m = curMonth + delta;
     let y = curYear;
     if (m > 11) { m = 0; y++; }
     if (m < 0)  { m = 11; y--; }
+    // 边界限制：只允许去年到明年
+    if (y < minYear || y > maxYear) return;
     setCurMonth(m);
     setCurYear(y);
   };
@@ -407,9 +413,17 @@ const CalendarPage: React.FC = () => {
             <>
               {/* 月份导航 */}
               <div className="cal-nav">
-                <button className="cal-nav-btn" onClick={() => changeMonth(-1)}>‹</button>
+                <button
+                  className="cal-nav-btn"
+                  onClick={() => changeMonth(-1)}
+                  disabled={curYear <= minYear && curMonth === 0}
+                >‹</button>
                 <span className="cal-month">{curYear}年 {MONTH_NAMES[curMonth]}</span>
-                <button className="cal-nav-btn" onClick={() => changeMonth(1)}>›</button>
+                <button
+                  className="cal-nav-btn"
+                  onClick={() => changeMonth(1)}
+                  disabled={curYear >= maxYear && curMonth === 11}
+                >›</button>
               </div>
 
               {/* 星期头 */}
