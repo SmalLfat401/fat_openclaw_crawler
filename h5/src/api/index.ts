@@ -478,14 +478,9 @@ export interface WantGuziResponse {
 /**
  * H5端：提交求谷表单
  */
-export async function submitWantGuzi(form: WantGuziForm): Promise<WantGuziResponse | null> {
-  try {
-    const response = await apiClient.post<WantGuziResponse>('/want-guzi', form);
-    return response as WantGuziResponse;
-  } catch (error) {
-    console.error('提交求谷表单失败:', error);
-    throw error;
-  }
+export async function submitWantGuzi(form: WantGuziForm): Promise<WantGuziResponse> {
+  const response = await apiClient.post<WantGuziResponse>('/want-guzi', form);
+  return response as unknown as WantGuziResponse;
 }
 
 export default {
