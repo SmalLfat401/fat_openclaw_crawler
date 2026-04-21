@@ -14,6 +14,7 @@ from app.api.llm import router as llm_router
 from app.api.h5_glossary import router as h5_glossary_router
 from app.api.weibo_intel import router as weibo_intel_router
 from app.api.want_guzi import router as want_guzi_router
+from app.api.features import router as features_router
 
 __all__ = [
     "routes_router",
@@ -31,4 +32,5 @@ __all__ = [
     "h5_glossary_router",
     "weibo_intel_router",
     "want_guzi_router",
+    "features_router",
 ]

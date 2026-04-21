@@ -1,7 +1,9 @@
+import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, ConfigProvider, theme } from 'antd';
+import { Layout, Menu, ConfigProvider, theme, Spin } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { UserOutlined, DashboardOutlined, SettingOutlined, TagOutlined, DatabaseOutlined, BulbOutlined, ShoppingOutlined, BookOutlined, FireOutlined, CalendarOutlined, HeartOutlined, KeyOutlined, ThunderboltOutlined, RobotOutlined, AlertOutlined, GiftOutlined } from '@ant-design/icons';
+import { useFeatures } from './context/FeaturesContext';
 import './styles/global.scss';
 
 const { Header, Content, Sider } = Layout;
@@ -9,9 +11,33 @@ const { Header, Content, Sider } = Layout;
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { features, loading } = useFeatures();
+
+  // 根路径重定向：根据 Feature Flag 决定跳转目标
+  React.useEffect(() => {
+    if (!loading && location.pathname === '/') {
+      const flags = features || { WEIBO_USERS_ENABLED: true };
+      const target = flags.WEIBO_USERS_ENABLED ? '/weibo-users' : '/weibo-intel';
+      navigate(target, { replace: true });
+    }
+  }, [loading, location.pathname, features, navigate]);
+
+  // 加载中显示 loading
+  if (loading) {
+    return (
+      <ConfigProvider locale={zhCN}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0a0f1a' }}>
+          <Spin size="large" />
+        </div>
+      </ConfigProvider>
+    );
+  }
+
+  // 如果获取失败，默认全部启用（开发友好）
+  const flags = features || { WEIBO_USERS_ENABLED: true, WEIBO_INTEL_ENABLED: true, LLM_ENABLED: true };
 
   const menuItems = [
-    { key: '/weibo-users', icon: <UserOutlined />, label: '微博用户管理' },
+    // 微博情报（始终显示，情报管理 + 信息提取）
     {
       key: 'weibo-intel',
       icon: <RobotOutlined />,
@@ -22,6 +48,10 @@ function App() {
         { key: '/weibo-intel/keywords', icon: <KeyOutlined />, label: '关键词库' },
       ],
     },
+    // 微博用户管理（仅在 WEIBO_USERS_ENABLED 时显示）
+    ...(flags.WEIBO_USERS_ENABLED ? [
+      { key: '/weibo-users', icon: <UserOutlined />, label: '微博用户管理' },
+    ] : []),
     {
       key: 'slang',
       icon: <BookOutlined />,
