@@ -18,7 +18,7 @@ import IntelManagement from '../pages/weiboIntel/IntelManagement';
 import WeiboIntelDetailPage from '../pages/weiboIntel/WeiboIntelDetail';
 import WeiboIntelEditPage from '../pages/weiboIntel/WeiboIntelEdit';
 import KeywordLibrary from '../pages/weiboIntel/KeywordLibrary';
-import WeekScheduleOverview from '../pages/operation/WeekScheduleOverview';
+import WeekScheduleOverview from '../pages/operation/weekSchedule';
 import PublishChannelSettings from '../pages/operation/PublishChannelSettings';
 
 const router = createBrowserRouter([
