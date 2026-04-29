@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Tag, Space, Button, Popconfirm, Empty } from 'antd';
 import {
   EditOutlined, DeleteOutlined, PushpinFilled, PushpinOutlined,
@@ -8,7 +8,7 @@ import dayjs from 'dayjs';
 import type { ScheduleItem, IntelEvent } from './constants';
 import {
   CONTENT_TYPE_CONFIG, CHANNELS, globalStatus, nextStatusFn,
-  formatDate, PUBLISH_STATUS_LABELS, STATUS_COLORS,
+  formatDate, PUBLISH_STATUS_LABELS, STATUS_COLORS, INTEL_TYPE_CONFIG,
 } from './constants';
 import IntelEventCard from './IntelEventCard';
 
@@ -23,20 +23,45 @@ interface RightPanelProps {
   onDelete: (id: string) => void;
   onStatusChange: (item: ScheduleItem, chId: string) => void;
   onTogglePinned: (item: ScheduleItem) => void;
+  onIntelClick: (evt: IntelEvent) => void;
   onIntelPublishTimeChange: (eventId: string, time: 'morning' | 'afternoon' | 'evening') => void;
 }
 
 const RightPanel = React.memo<RightPanelProps>(({
   selectedDate, isDaySelected, weekRange, scheduleItems, intelEvents,
   onCreate, onEdit, onDelete, onStatusChange, onTogglePinned,
-  onIntelPublishTimeChange,
+  onIntelClick, onIntelPublishTimeChange,
 }: RightPanelProps) => {
   const isToday = selectedDate === dayjs().format('YYYY-MM-DD');
+  const [activeType, setActiveType] = useState<string>('__all__');
 
   const displayTitle = isDaySelected
     ? dayjs(selectedDate).format('MM月DD日')
     : `本周 + 下周 · ${weekRange}`;
 
+  // 按情报类型统计
+  const intelByType = useMemo(() => {
+    const map: Record<string, IntelEvent[]> = {};
+    intelEvents.forEach(e => {
+      if (!map[e.type]) map[e.type] = [];
+      map[e.type].push(e);
+    });
+    return map;
+  }, [intelEvents]);
+
+  const countAll = intelEvents.length;
+  const countByType = useMemo(() => {
+    const m: Record<string, number> = {};
+    Object.entries(intelByType).forEach(([ct, evts]) => { m[ct] = evts.length; });
+    return m;
+  }, [intelByType]);
+
+  const filteredIntelEvents = useMemo(() => {
+    if (activeType === '__all__') return intelEvents;
+    return intelByType[activeType] ?? [];
+  }, [intelEvents, intelByType, activeType]);
+
+  // 排期内容按类型分组（给排期列表用，不受情报过滤影响）
   const itemsByType = useMemo(() => {
     const map: Record<string, ScheduleItem[]> = {};
     scheduleItems.forEach(i => {
@@ -45,6 +70,8 @@ const RightPanel = React.memo<RightPanelProps>(({
     });
     return map;
   }, [scheduleItems]);
+
+  const visibleTypes = useMemo(() => Object.keys(itemsByType), [itemsByType]);
 
   return (
     <div style={{
@@ -87,29 +114,79 @@ const RightPanel = React.memo<RightPanelProps>(({
         </Button>
       </div>
 
+      {/* 类别过滤栏 */}
+      { 
+        <div style={{
+          padding: '8px 16px',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          gap: 6,
+          flexWrap: 'wrap',
+          flexShrink: 0,
+        }} >
+          <Tag
+            style={{
+              cursor: 'pointer', margin: 0,
+              background: activeType === '__all__' ? 'rgba(255,255,255,0.12)' : 'transparent',
+              color: activeType === '__all__' ? '#e5e7eb' : '#6b7280',
+              border: `1px solid ${activeType === '__all__' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}`,
+              fontSize: 12,
+            }}
+            onClick={() => setActiveType('__all__')}
+          >
+            全部 {countAll}
+          </Tag>
+        {Object.entries(INTEL_TYPE_CONFIG).map(([ct, cfg]) => {
+          const count = countByType[ct] ?? 0;
+          const isActive = activeType === ct;
+          return (
+            <Tag
+              key={ct}
+              style={{
+                cursor: 'pointer', margin: 0,
+                background: isActive ? `${cfg.color}28` : 'transparent',
+                color: isActive ? cfg.color : count > 0 ? '#9ca3af' : '#4b5563',
+                border: `1px solid ${isActive ? cfg.color + '60' : 'rgba(255,255,255,0.08)'}`,
+                fontSize: 12,
+              }}
+              onClick={() => setActiveType(ct)}
+            >
+              {cfg.label} {count}
+            </Tag>
+          );
+        })}
+        </div>
+      }
+
       {/* 面板内容（可滚动） */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {intelEvents.length > 0 && (
+        {filteredIntelEvents.length > 0 && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
               <Space>
                 <BellOutlined style={{ color: '#9ca3af', fontSize: 12 }} />
                 <span style={{ fontSize: 13, color: '#9ca3af', fontWeight: 600 }}>情报事件</span>
                 <Tag style={{ fontSize: 10, margin: 0, background: '#1890ff22', color: '#1890ff', border: 'none' }}>
-                  {intelEvents.length}
+                  {filteredIntelEvents.length}
                 </Tag>
               </Space>
             </div>
-            {intelEvents.map(evt => (
-              <IntelEventCard key={evt.id} evt={evt} onPublishTimeChange={onIntelPublishTimeChange} />
+            {filteredIntelEvents.map(evt => (
+              <IntelEventCard
+                key={evt.id}
+                evt={evt}
+                onPublishTimeChange={onIntelPublishTimeChange}
+                onClick={() => onIntelClick(evt)}
+              />
             ))}
           </div>
         )}
 
         {scheduleItems.length > 0 ? (
           <div>
-            {Object.entries(itemsByType).map(([ct, ctItems]) => {
+            {visibleTypes.map(ct => {
+              const ctItems = itemsByType[ct];
               const cfg = CONTENT_TYPE_CONFIG[ct] ?? CONTENT_TYPE_CONFIG['activity'];
               return (
                 <div key={ct} style={{ marginBottom: 14 }}>

@@ -6,9 +6,10 @@ import { INTEL_TYPE_CONFIG, PUBLISH_TIME_CONFIG } from './constants';
 interface IntelEventCardProps {
   evt: IntelEvent;
   onPublishTimeChange: (eventId: string, time: 'morning' | 'afternoon' | 'evening') => void;
+  onClick?: () => void;
 }
 
-const IntelEventCard = React.memo<IntelEventCardProps>(({ evt, onPublishTimeChange }) => {
+const IntelEventCard = React.memo<IntelEventCardProps>(({ evt, onPublishTimeChange, onClick }) => {
   const tcfg = INTEL_TYPE_CONFIG[evt.type] ?? INTEL_TYPE_CONFIG['other'];
   const [selectedTime, setSelectedTime] = useState<'morning' | 'afternoon' | 'evening' | undefined>(
     evt.publish_time,
@@ -27,7 +28,10 @@ const IntelEventCard = React.memo<IntelEventCardProps>(({ evt, onPublishTimeChan
       borderRadius: 8,
       padding: '10px 12px',
       marginBottom: 8,
-    }}>
+      cursor: 'pointer',
+    }}
+    onClick={onClick}
+    >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         <span style={{ fontSize: 18, lineHeight: 1 }}>{evt.icon}</span>
         <div style={{ flex: 1, minWidth: 0 }}>

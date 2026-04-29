@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Space, Button, Spin } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -14,6 +14,8 @@ import {
 import CalendarCell from './CalendarCell';
 import RightPanel from './RightPanel';
 import { CreateItemModal, BaseEditModal, SlangEditModal, MemeEditModal } from './modals';
+import IntelDetailDrawer from './IntelDetailDrawer';
+import WeeklyBroadcastModal from './WeeklyBroadcastModal';
 
 const WeekScheduleOverview: React.FC = () => {
   // ---- 稳定时间基准 ----
@@ -40,8 +42,14 @@ const WeekScheduleOverview: React.FC = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<ScheduleItem | null>(null);
   const [editDate, setEditDate] = useState('');
+  const [selectedIntel, setSelectedIntel] = useState<IntelEvent | null>(null);
+  const [intelDetailOpen, setIntelDetailOpen] = useState(false);
+  const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
 
-  // ---- 加载情报（内部实现，依赖 ref） ----
+  const handleIntelClick = useCallback((evt: IntelEvent) => {
+    setSelectedIntel(evt);
+    setIntelDetailOpen(true);
+  }, []);
   const _loadIntelEvents = useCallback(async () => {
     setIntelLoading(true);
     try {
@@ -322,6 +330,13 @@ const WeekScheduleOverview: React.FC = () => {
             </span>
             <Button icon={<RightOutlined />} onClick={nextWeek} />
             <Button type={viewOffset === 0 ? 'primary' : 'default'} onClick={goToThisWeek}>回到本周</Button>
+            <Button
+              type="default"
+              onClick={() => setBroadcastModalOpen(true)}
+              style={{ borderColor: '#1890ff', color: '#1890ff' }}
+            >
+              📣 活动播报
+            </Button>
           </Space>
         </div>
       </div>
@@ -428,9 +443,17 @@ const WeekScheduleOverview: React.FC = () => {
           onDelete={handleDelete}
           onStatusChange={handleStatusChange}
           onTogglePinned={handleTogglePinned}
+          onIntelClick={handleIntelClick}
           onIntelPublishTimeChange={handleIntelPublishTimeChange}
         />
       </div>
+
+      <IntelDetailDrawer
+        evt={selectedIntel}
+        open={intelDetailOpen}
+        onClose={() => setIntelDetailOpen(false)}
+        onPublishTimeChange={handleIntelPublishTimeChange}
+      />
 
       <CreateItemModal
         open={createModalOpen}
@@ -438,6 +461,16 @@ const WeekScheduleOverview: React.FC = () => {
         onClose={() => setCreateModalOpen(false)}
         onCreate={handleCreate}
       />
+
+      <WeeklyBroadcastModal
+        open={broadcastModalOpen}
+        weekItems={items}
+        weekIntelEvents={intelEvents}
+        viewMonday={viewMonday.format('YYYY-MM-DD')}
+        viewSunday={viewSunday.format('YYYY-MM-DD')}
+        onClose={() => setBroadcastModalOpen(false)}
+      />
+
       {renderEditModal()}
     </div>
   );
