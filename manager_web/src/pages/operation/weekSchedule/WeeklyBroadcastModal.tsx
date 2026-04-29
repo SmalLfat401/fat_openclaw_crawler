@@ -1,17 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Modal, Tag, Checkbox, Button, Space, Spin, message,
-  Empty, Typography,
+  Modal, Tag, Checkbox, Button, Empty,
 } from 'antd';
 import {
-  LoadingOutlined, RocketOutlined, BulbOutlined,
-  CopyOutlined, CheckOutlined,
+  RocketOutlined, BulbOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import type { ScheduleItem, IntelEvent, IntelEventType } from './constants';
+import type { IntelEvent, IntelEventType } from './constants';
 import { INTEL_TYPE_CONFIG, CONTENT_TYPE_CONFIG } from './constants';
-
-const { TextArea } = Typography;
+import BroadcastGenerateModal from './BroadcastGenerateModal';
 
 // ============================================================
 // 快速筛选配置
@@ -32,7 +29,6 @@ const QUICK_FILTERS: Array<{ key: IntelEventType | 'all'; label: string; icon: R
 // ============================================================
 interface WeeklyBroadcastModalProps {
   open: boolean;
-  weekItems: ScheduleItem[];
   weekIntelEvents: IntelEvent[];
   viewMonday: string;
   viewSunday: string;
@@ -40,46 +36,18 @@ interface WeeklyBroadcastModalProps {
 }
 
 // ============================================================
-// AI 生成请求
-// ============================================================
-async function callAIWriteBroadcast(
-  selectedIntel: Array<{ name: string; date: string; type: string; venue?: string; icon?: string }>,
-  contentType: string,
-): Promise<string> {
-  await new Promise(r => setTimeout(r, 1500));
-  if (selectedIntel.length === 0) {
-    return '请先在左侧勾选要播报的情报事件';
-  }
-  const typeLabel = CONTENT_TYPE_CONFIG[contentType]?.label ?? contentType;
-  const lines: string[] = [
-    `📣 本周${typeLabel}播报（${dayjs().format('YYYY年M月D日')}）`,
-    '',
-    '【本周情报速览】',
-    ...selectedIntel.map(e => {
-      const tcfg = INTEL_TYPE_CONFIG[e.type as IntelEventType] ?? INTEL_TYPE_CONFIG['other'];
-      return `· ${e.date} | ${tcfg.label} | ${e.name}${e.venue ? ` @ ${e.venue}` : ''}`;
-    }),
-    '',
-    '以上内容由 AI 整理生成，供运营参考发布。',
-  ];
-  return lines.join('\n');
-}
-
-// ============================================================
 // 主组件
 // ============================================================
 const WeeklyBroadcastModal: React.FC<WeeklyBroadcastModalProps> = ({
-  open, weekItems, weekIntelEvents, viewMonday, viewSunday, onClose,
+  open, weekIntelEvents, viewMonday, viewSunday, onClose,
 }) => {
   // ---- 内容状态 ----
   const [quickFilter, setQuickFilter] = useState<string>('all');
   const [selectedIntel, setSelectedIntel] = useState<Set<string>>(new Set());
   const [contentType, setContentType] = useState<string>('activity');
 
-  // ---- AI 状态 ----
-  const [generating, setGenerating] = useState(false);
-  const [generatedText, setGeneratedText] = useState('');
-  const [copied, setCopied] = useState(false);
+  // ---- 生成弹窗 ----
+  const [generateOpen, setGenerateOpen] = useState(false);
 
   // ---- 按日期分组 intel ----
   const intelByDate = useMemo(() => {
@@ -121,44 +89,20 @@ const WeeklyBroadcastModal: React.FC<WeeklyBroadcastModalProps> = ({
     });
   };
 
-  // ---- AI 生成 ----
-  const handleGenerate = async () => {
+  // ---- 打开生成弹窗 ----
+  const openGenerate = () => {
     if (selectedIntel.size === 0) {
-      message.warning('请先在左侧勾选情报事件');
-      return;
+      return; // 按钮本身就是 disabled，兜底
     }
-    setGenerating(true);
-    setGeneratedText('');
-    try {
-      const intel = weekIntelEvents.filter(e => selectedIntel.has(e.id));
-      const text = await callAIWriteBroadcast(
-        intel.map(e => ({ name: e.name, date: e.date, type: e.type, venue: e.venue, icon: e.icon })),
-        contentType,
-      );
-      setGeneratedText(text);
-    } catch {
-      message.error('生成失败，请重试');
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleCopy = () => {
-    if (!generatedText) return;
-    navigator.clipboard.writeText(generatedText).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    setGenerateOpen(true);
   };
 
   // ---- 关闭时重置 ----
   const handleClose = () => {
     setSelectedIntel(new Set());
-    setGeneratedText('');
-    setCopied(false);
-    setGenerating(false);
     setQuickFilter('all');
     setContentType('activity');
+    setGenerateOpen(false);
     onClose();
   };
 
@@ -167,7 +111,8 @@ const WeeklyBroadcastModal: React.FC<WeeklyBroadcastModalProps> = ({
   const selectedTypeCfg = CONTENT_TYPE_CONFIG[contentType] ?? CONTENT_TYPE_CONFIG['activity'];
 
   return (
-    <Modal
+    <>
+      <Modal
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 18 }}>📣</span>
@@ -397,59 +342,37 @@ const WeeklyBroadcastModal: React.FC<WeeklyBroadcastModalProps> = ({
               type="primary"
               block
               icon={<BulbOutlined />}
-              onClick={handleGenerate}
-              loading={generating}
+              onClick={openGenerate}
+              disabled={selectedIntel.size === 0}
               style={{
                 background: selectedTypeCfg.color,
                 borderColor: selectedTypeCfg.color,
                 fontWeight: 600,
               }}
             >
-              {generating ? 'AI 整理中…' : '生成播报文案'}
+              生成播报文案
             </Button>
-          </div>
-
-          {/* AI 结果 */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px' }}>
-            {generating && (
-              <div style={{ textAlign: 'center', padding: '20px 0', color: '#6b7280', fontSize: 12 }}>
-                <Spin indicator={<LoadingOutlined spin style={{ color: '#1890ff', fontSize: 20 }} />} />
-                <div style={{ marginTop: 8 }}>AI 正在整理内容…</div>
-              </div>
-            )}
-
-            {generatedText && !generating && (
-              <div style={{
-                background: 'rgba(24,144,255,0.08)',
-                border: '1px solid rgba(24,144,255,0.2)',
-                borderRadius: 8,
-                padding: '10px 12px',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: '#1890ff', fontWeight: 600 }}>✨ AI 播报文案</span>
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={copied ? <CheckOutlined /> : <CopyOutlined />}
-                    onClick={handleCopy}
-                    style={{ fontSize: 11, color: copied ? '#52c41a' : '#9ca3af', padding: '0 4px' }}
-                  >
-                    {copied ? '已复制' : '复制'}
-                  </Button>
-                </div>
-                <pre style={{
-                  margin: 0, fontSize: 12, color: '#e5e7eb', lineHeight: 1.7,
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-                  fontFamily: 'inherit',
-                }}>
-                  {generatedText}
-                </pre>
+            {selectedIntel.size === 0 && (
+              <div style={{ textAlign: 'center', color: '#4b5563', fontSize: 11, marginTop: 6 }}>
+                请先在左侧勾选情报事件
               </div>
             )}
           </div>
         </div>
       </div>
     </Modal>
+
+      <BroadcastGenerateModal
+        open={generateOpen}
+        selectedIntel={weekIntelEvents.filter(e => selectedIntel.has(e.id))}
+        contentType={contentType}
+        onClose={() => setGenerateOpen(false)}
+        onSave={(cards, ct) => {
+          console.log('saved cards', cards, ct);
+          setGenerateOpen(false);
+        }}
+      />
+    </>
   );
 };
 

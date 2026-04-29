@@ -464,7 +464,6 @@ const WeekScheduleOverview: React.FC = () => {
 
       <WeeklyBroadcastModal
         open={broadcastModalOpen}
-        weekItems={items}
         weekIntelEvents={intelEvents}
         viewMonday={viewMonday.format('YYYY-MM-DD')}
         viewSunday={viewSunday.format('YYYY-MM-DD')}
