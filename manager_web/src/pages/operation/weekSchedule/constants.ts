@@ -11,11 +11,13 @@ export type IntelEventType =
 export interface IntelEvent {
   id: string;
   date: string;
+  end_date?: string;
   time?: string;
   type: IntelEventType;
   icon: string;
   name: string;
   venue?: string;
+  city?: string;
   badge: string;
   cover?: string;
   price?: string | number;
@@ -120,7 +122,7 @@ export interface PlatformStatus {
 export interface ScheduleItem {
   id: string; week_year: string; date: string; content_type: string;
   title: string; body: string; images: string[];
-  slang_category?: string; linked_slags: LinkedSlang[];
+  slang_category?: string | null; linked_slags: LinkedSlang[];
   is_pinned: boolean; platforms: Record<string, PlatformStatus>;
   created_at: string; updated_at: string;
 }

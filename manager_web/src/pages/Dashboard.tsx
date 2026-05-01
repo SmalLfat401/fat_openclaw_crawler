@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   Row,
@@ -22,7 +22,7 @@ import {
   ClockCircleOutlined,
   AppstoreOutlined,
 } from '@ant-design/icons';
-import { analyticsApi, type TrackStats } from '@/api/analytics';
+import { analyticsApi, type TrackStats } from '../api/analytics';
 import './Dashboard.css';
 
 const { Title, Text } = Typography;
@@ -92,43 +92,6 @@ const StatCard = ({
 );
 
 // ──────────────────────────────────────────────
-// 迷你趋势柱状图（纯 CSS）
-// ──────────────────────────────────────────────
-const MiniBarChart = ({ data }: { data: Array<{ date: string; pv: number; uv: number }> }) => {
-  if (!data.length) return null;
-  const maxPv = Math.max(...data.map((d) => d.pv), 1);
-  const maxUv = Math.max(...data.map((d) => d.uv), 1);
-
-  return (
-    <div className="mini-bar-chart">
-      <div className="chart-legend">
-        <span className="legend-dot pv" />PV
-        <span className="legend-dot uv" />UV
-      </div>
-      <div className="chart-bars">
-        {data.map((d) => (
-          <Tooltip key={d.date} title={`${d.date}\nPV: ${formatNum(d.pv)}\nUV: ${formatNum(d.uv)}`}>
-            <div className="bar-group">
-              <div className="bar-stack">
-                <div
-                  className="bar bar-uv"
-                  style={{ height: `${(d.uv / maxUv) * 100}%` }}
-                />
-                <div
-                  className="bar bar-pv"
-                  style={{ height: `${(d.pv / maxPv) * 100}%` }}
-                />
-              </div>
-              <div className="bar-date">{d.date.slice(5)}</div>
-            </div>
-          </Tooltip>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// ──────────────────────────────────────────────
 // 页面统计（带迷你图）
 // ──────────────────────────────────────────────
 const PageStatsCard = ({
@@ -155,7 +118,7 @@ const PageStatsCard = ({
       dataIndex: 'pv',
       key: 'pv',
       align: 'right' as const,
-      render: (v: number, r: any) => (
+      render: (v: number, _r: any) => (
         <div className="table-num">
           <span className="num-main">{formatNum(v)}</span>
           <div className="num-bar-wrap">
@@ -323,7 +286,7 @@ const RetentionPanel = ({
       ) : (
         <div className="retention-wrap">
           <div className="retention-chart">
-            {sorted.map((r, i) => (
+            {sorted.map((r) => (
               <div key={r.date} className="retention-row">
                 <Text type="secondary" style={{ fontSize: 12, width: 56, flexShrink: 0 }}>
                   {r.date.slice(5)}
@@ -340,8 +303,8 @@ const RetentionPanel = ({
             ))}
           </div>
           <div className="retention-legend">
-            <span className="legend-bar 1d" />次日留存
-            <span className="legend-bar 7d" />7日留存
+            <span className="legend-bar bar-1d" />次日留存
+            <span className="legend-bar bar-7d" />7日留存
           </div>
           <div className="retention-table-mini">
             <table>
@@ -498,19 +461,6 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [days]);
-
-  // 生成近 N 天的 PV/UV 趋势（用于迷你图）
-  const buildDailyTrend = () => {
-    if (!data) return [];
-    const end = new Date();
-    return Array.from({ length: days }, (_, i) => {
-      const d = new Date(end);
-      d.setDate(d.getDate() - (days - 1 - i));
-      const dateStr = d.toISOString().split('T')[0];
-      const dayStats = data.page_stats.filter(() => dateStr === dateStr);
-      return { date: dateStr, pv: 0, uv: 0 };
-    });
-  };
 
   return (
     <div className="dashboard">
@@ -690,7 +640,7 @@ const Dashboard: React.FC = () => {
             }
           >
             <ProductDetailStatsGrid items={
-              (data?.hot_ips || []).map(item => ({
+              (data?.hot_ips || []).map((item: { ip_tag: string; pv: number }) => ({
                 item_id: item.ip_tag,
                 item_name: item.ip_tag,
                 ip_tag: undefined,

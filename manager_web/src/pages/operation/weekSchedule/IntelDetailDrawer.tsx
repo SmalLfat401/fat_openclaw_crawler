@@ -168,7 +168,7 @@ const IntelDetailDrawer: React.FC<IntelDetailDrawerProps> = ({
                 <span style={{ fontSize: 12, color: '#6b7280' }}>💰 价格</span>
                 <span style={{ fontSize: 13, color: '#52c41a', fontWeight: 600 }}>
                   ¥{typeof (displayData?.price ?? evt?.price) === 'number'
-                    ? displayData.price
+                    ? displayData?.price
                     : displayData?.price ?? evt?.price}
                 </span>
               </div>

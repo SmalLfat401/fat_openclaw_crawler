@@ -330,7 +330,7 @@ export function observeExpose(
   getItemId: (el: HTMLElement) => string,
   getItemName?: (el: HTMLElement) => string,
   options: IntersectionObserverInit = { threshold: 0.3 }
-): void {
+): (() => void) | undefined {
   if (typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
 
   const observer = new IntersectionObserver((entries) => {
@@ -363,7 +363,7 @@ export function observeExpose(
   });
   mutObserver.observe(container, { childList: true, subtree: true });
 
-  // 组件卸载时断开
+  // 返回清理函数
   return () => {
     observer.disconnect();
     mutObserver.disconnect();

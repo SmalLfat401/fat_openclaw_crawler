@@ -31,7 +31,7 @@ const PublishChannelSettings: React.FC = () => {
   const [channels, setChannels] = useState<Channel[]>(MOCK_CHANNELS);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
-  const [form] = Form.useForm();
+  const [_form] = Form.useForm();
   const [formName, setFormName] = useState('');
   const [formIcon, setFormIcon] = useState('');
 

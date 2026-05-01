@@ -365,8 +365,8 @@
   vertical-align: middle;
 }
 
-.legend-bar.1d { background: linear-gradient(90deg, #4ade80, #22c55e); }
-.legend-bar.7d { background: linear-gradient(90deg, #67e8f9, #00f0ff); }
+.legend-bar.bar-1d { background: linear-gradient(90deg, #4ade80, #22c55e); }
+.legend-bar.bar-7d { background: linear-gradient(90deg, #67e8f9, #00f0ff); }
 
 .retention-table-mini table {
   width: 100%;

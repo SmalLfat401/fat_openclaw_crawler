@@ -8,8 +8,8 @@ import '../../../styles/global.scss';
 
 import type { IntelEvent, IntelEventType, ScheduleItem } from './constants';
 import {
-  INTEL_TYPE_CONFIG, CONTENT_TYPE_CONFIG, CHANNELS,
-  globalStatus, nextStatusFn, nowIso,
+  INTEL_TYPE_CONFIG, CONTENT_TYPE_CONFIG,
+  nextStatusFn, nowIso,
 } from './constants';
 import CalendarCell from './CalendarCell';
 import RightPanel from './RightPanel';
@@ -144,7 +144,7 @@ const WeekScheduleOverview: React.FC = () => {
           title: saved.title,
           body: saved.body,
           images: saved.images,
-          slang_category: saved.slang_category,
+          slang_category: saved.slang_category ?? undefined,
           linked_slags: saved.linked_slags,
           is_pinned: saved.is_pinned,
         });
@@ -157,7 +157,7 @@ const WeekScheduleOverview: React.FC = () => {
           title: saved.title,
           body: saved.body,
           images: saved.images,
-          slang_category: saved.slang_category,
+          slang_category: saved.slang_category ?? undefined,
           linked_slags: saved.linked_slags,
           is_pinned: saved.is_pinned,
         });

@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Modal, Button, Space, Typography, Tag, Divider, message,
-  Input, Empty, Tooltip, Switch,
+  Modal, Button, Space, Tag, Divider, message,
+  Input, Empty, Tooltip,
 } from 'antd';
 import {
-  BulbOutlined, CopyOutlined, CheckOutlined, DeleteOutlined,
-  SyncOutlined, EditOutlined, EyeOutlined, PlusOutlined,
+  BulbOutlined, CopyOutlined, CheckOutlined,
+  SyncOutlined, EditOutlined, EyeOutlined,
   HolderOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -13,7 +13,7 @@ import type { IntelEvent, IntelEventType } from './constants';
 import { INTEL_TYPE_CONFIG, CONTENT_TYPE_CONFIG } from './constants';
 import { llmApi } from '../../../api/llm';
 
-const { TextArea } = Typography;
+const { TextArea } = Input;
 
 // ============================================================
 // 类型定义
@@ -628,7 +628,7 @@ const BroadcastGenerateModal: React.FC<BroadcastGenerateModalProps> = ({
           </div>
           <TextArea
             value={prompt}
-            onChange={e => setPrompt(e.target.value)}
+            onChange={(e) => setPrompt(e.target.value)}
             rows={6}
             style={{ fontSize: 11, fontFamily: 'monospace', resize: 'none', background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: '#e5e7eb' }}
             placeholder="提示词内容…"
@@ -713,7 +713,7 @@ const BroadcastGenerateModal: React.FC<BroadcastGenerateModalProps> = ({
             {editMode ? (
               <TextArea
                 value={jsonText}
-                onChange={e => setJsonText(e.target.value)}
+                onChange={(e) => setJsonText(e.target.value)}
                 style={{
                   flex: 1, fontSize: 11, fontFamily: 'monospace',
                   resize: 'none', background: 'rgba(255,255,255,0.04)',
