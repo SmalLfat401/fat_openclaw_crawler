@@ -123,12 +123,16 @@ const WeekScheduleOverview: React.FC = () => {
       const params: Parameters<typeof fetchCalendarEvents>[0] = {};
 
       if (curMode === 'cal') {
-        const startDate = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-01`;
-        const lastDay = new Date(curYear, curMonth + 1, 0).getDate();
-        const endDate = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-${lastDay}`;
+        // 计算日历可见范围：从月初所在周的周日开始，到月末所在周的周六结束，各扩6天
+        const firstOfMonth = dayjs(`${curYear}-${String(curMonth + 1).padStart(2, '0')}-01`);
+        const lastDayOfMonth = firstOfMonth.endOf('month');
+        // 月初所在周的周日（weekday 0 = 周日）
+        const calStart = firstOfMonth.startOf('week').subtract(6, 'day');
+        // 月末所在周的周六（weekday 6 = 周六）
+        const calEnd = lastDayOfMonth.endOf('week').add(6, 'day');
         params.mode = 'calendar';
-        params.start_date = startDate;
-        params.end_date = endDate;
+        params.start_date = calStart.format('YYYY-MM-DD');
+        params.end_date = calEnd.format('YYYY-MM-DD');
       } else {
         params.mode = 'list';
         params.start_date = today;
@@ -206,7 +210,9 @@ const WeekScheduleOverview: React.FC = () => {
     for (let i = 0; i < firstDay; i++) {
       const d = daysInPrevMonth - firstDay + 1 + i;
       const dateStr = dayjs().date(d).month(curMonth === 0 ? 11 : curMonth - 1).year(curMonth === 0 ? curYear - 1 : curYear).format('YYYY-MM-DD');
-      days.push({ label: d, dateStr, isCurrentMonth: false, isToday: false, isSelected: false, types: [] });
+      const dayEvents = filteredEvents.filter((e) => e.date === dateStr);
+      const types = [...new Set(dayEvents.map((e) => e.type))];
+      days.push({ label: d, dateStr, isCurrentMonth: false, isToday: false, isSelected: false, types });
     }
 
     // 当月
@@ -228,7 +234,9 @@ const WeekScheduleOverview: React.FC = () => {
     const remaining = 42 - days.length;
     for (let d = 1; d <= remaining; d++) {
       const dateStr = dayjs().date(d).month(curMonth === 11 ? 0 : curMonth + 1).year(curMonth === 11 ? curYear + 1 : curYear).format('YYYY-MM-DD');
-      days.push({ label: d, dateStr, isCurrentMonth: false, isToday: false, isSelected: false, types: [] });
+      const dayEvents = filteredEvents.filter((e) => e.date === dateStr);
+      const types = [...new Set(dayEvents.map((e) => e.type))];
+      days.push({ label: d, dateStr, isCurrentMonth: false, isToday: false, isSelected: false, types });
     }
 
     return days;
@@ -493,23 +501,27 @@ const WeekScheduleOverview: React.FC = () => {
                 {calData.map((day, idx) => {
                   const isSunday = idx % 7 === 0;
                   const isSaturday = idx % 7 === 6;
+                  const isWeekEnd = idx % 7 === 6; // 周六右侧加粗分隔
+                  const isWeekStart = idx % 7 === 0; // 周日左侧分隔
                   return (
                     <div
                       key={idx}
                       onClick={() => selectDate(day.dateStr)}
                       style={{
                         minHeight: 90,
-                        borderRight: isSaturday ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(255,255,255,0.04)',
-                        borderBottom: idx < 35 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                        borderRight: isWeekEnd ? '2px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.04)',
+                        borderBottom: isWeekEnd ? '2px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.04)',
+                        borderLeft: isWeekStart && idx > 0 ? 'none' : 'none',
                         padding: '6px 8px',
                         cursor: 'pointer',
                         background: !day.isCurrentMonth
-                          ? 'rgba(0,0,0,0.1)'
+                          ? day.types.length > 0 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.15)'
                           : day.isSelected
                           ? 'rgba(212, 83, 126, 0.15)'
                           : day.isToday
                           ? 'rgba(0, 240, 255, 0.05)'
                           : 'transparent',
+                        opacity: !day.isCurrentMonth ? 0.85 : 1,
                         transition: 'background 0.15s',
                         display: 'flex',
                         flexDirection: 'column',

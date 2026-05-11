@@ -110,12 +110,14 @@ const CalendarPage: React.FC = () => {
       const params: Parameters<typeof fetchCalendarEvents>[0] = {};
 
       if (curMode === 'cal') {
-        const startDate = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-01`;
-        const lastDay = new Date(curYear, curMonth + 1, 0).getDate();
-        const endDate = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-${lastDay}`;
+        // 计算日历可见范围：从月初所在周的周日开始，到月末所在周的周六结束，各扩6天
+        const firstOfMonth = dayjs(`${curYear}-${String(curMonth + 1).padStart(2, '0')}-01`);
+        const lastDayOfMonth = firstOfMonth.endOf('month');
+        const calStart = firstOfMonth.startOf('week').subtract(6, 'day');
+        const calEnd = lastDayOfMonth.endOf('week').add(6, 'day');
         params.mode = 'calendar';
-        params.start_date = startDate;
-        params.end_date = endDate;
+        params.start_date = calStart.format('YYYY-MM-DD');
+        params.end_date = calEnd.format('YYYY-MM-DD');
       } else {
         params.mode = 'list';
         params.start_date = today;
@@ -262,7 +264,9 @@ const CalendarPage: React.FC = () => {
     for (let i = 0; i < firstDay; i++) {
       const d = daysInPrevMonth - firstDay + 1 + i;
       const dateStr = dayjs().date(d).month(curMonth === 0 ? 11 : curMonth - 1).year(curMonth === 0 ? curYear - 1 : curYear).format('YYYY-MM-DD');
-      days.push({ label: d, dateStr, isCurrentMonth: false, isToday: false, isSelected: false, types: [] });
+      const dayEvents = filteredEvents.filter((e) => e.date === dateStr);
+      const types = [...new Set(dayEvents.map((e) => e.type))];
+      days.push({ label: d, dateStr, isCurrentMonth: false, isToday: false, isSelected: false, types });
     }
 
     // 当月
@@ -284,7 +288,9 @@ const CalendarPage: React.FC = () => {
     const remaining = 42 - days.length;
     for (let d = 1; d <= remaining; d++) {
       const dateStr = dayjs().date(d).month(curMonth === 11 ? 0 : curMonth + 1).year(curMonth === 11 ? curYear + 1 : curYear).format('YYYY-MM-DD');
-      days.push({ label: d, dateStr, isCurrentMonth: false, isToday: false, isSelected: false, types: [] });
+      const dayEvents = filteredEvents.filter((e) => e.date === dateStr);
+      const types = [...new Set(dayEvents.map((e) => e.type))];
+      days.push({ label: d, dateStr, isCurrentMonth: false, isToday: false, isSelected: false, types });
     }
 
     return days;
