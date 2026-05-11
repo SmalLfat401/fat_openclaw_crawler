@@ -2,21 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { Drawer, Tag, Space, Divider, Image, Button, Spin } from 'antd';
 import { LinkOutlined } from '@ant-design/icons';
 import type { IntelEvent } from './constants';
-import { INTEL_TYPE_CONFIG, PUBLISH_TIME_CONFIG } from './constants';
+import { INTEL_TYPE_CONFIG } from './constants';
 import { fetchIntelEventDetail, type IntelEventDetail } from '../../../api/intelEvent';
 
 interface IntelDetailDrawerProps {
-  evt: IntelEvent | null;
+  /** 情报事件（来自列表数据） */
+  evt: (IntelEvent | null);
+  /** 完整事件数据（来自 H5 API 统一格式） */
   open: boolean;
   onClose: () => void;
   onPublishTimeChange: (eventId: string, time: 'morning' | 'afternoon' | 'evening') => void;
 }
 
+// 保留颜色配置（情报详情页专用）
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   convention:      { bg: '#EEEDFE', text: '#534AB7' },
   book_signing:    { bg: '#FBEAF0', text: '#D4537E' },
   pre_order:       { bg: '#FFF3E0', text: '#E65100' },
-  product_launch: { bg: '#E8F5E9', text: '#2E7D32' },
+  product_launch:  { bg: '#E8F5E9', text: '#2E7D32' },
   offline_activity:{ bg: '#E3F2FD', text: '#1565C0' },
   online_activity: { bg: '#F3E5F5', text: '#6A1B9A' },
   other:           { bg: '#F5F5F5', text: '#616161' },
@@ -27,9 +30,6 @@ const IntelDetailDrawer: React.FC<IntelDetailDrawerProps> = ({
 }) => {
   const [detail, setDetail] = useState<IntelEventDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedTime, setSelectedTime] = useState<'morning' | 'afternoon' | 'evening' | undefined>(
-    evt?.publish_time,
-  );
 
   // 重置抽屉状态
   useEffect(() => {
@@ -38,24 +38,18 @@ const IntelDetailDrawer: React.FC<IntelDetailDrawerProps> = ({
       setLoading(false);
       return;
     }
-    setSelectedTime(evt.publish_time);
-    const intelId = evt.id.replace(/^intel_/, '');
+    const intelId = (evt as any).id?.replace(/^intel_/, '') ?? (evt as any).id ?? '';
+    if (!intelId) return;
     setLoading(true);
     fetchIntelEventDetail(intelId)
       .then(data => setDetail(data))
       .catch(() => setDetail(null))
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, evt?.id]);
+  }, [open, (evt as any)?.id]);
 
-  const handleSetTime = (time: 'morning' | 'afternoon' | 'evening') => {
-    if (!evt) return;
-    setSelectedTime(time);
-    onPublishTimeChange(evt.id, time);
-  };
-
-  // 使用详情 API 数据兜底（当列表数据不足时）
-  const displayData = detail ?? evt;
+  // 从详情 API 数据中取字段，evt 做兜底
+  const displayData: any = detail ?? evt;
   const tcfg = INTEL_TYPE_CONFIG[(displayData?.type ?? 'other') as keyof typeof INTEL_TYPE_CONFIG]
     ?? INTEL_TYPE_CONFIG['other'];
   const colors = TYPE_COLORS[displayData?.type ?? 'other'] ?? TYPE_COLORS['other'];
@@ -176,7 +170,7 @@ const IntelDetailDrawer: React.FC<IntelDetailDrawerProps> = ({
           </div>
 
           {/* 活动介绍 */}
-          {detail?.description && (
+          {displayData?.description && (
             <div>
               <div style={{ fontSize: 13, color: '#e5e7eb', fontWeight: 600, marginBottom: 8 }}>活动介绍</div>
               <div style={{
@@ -189,17 +183,17 @@ const IntelDetailDrawer: React.FC<IntelDetailDrawerProps> = ({
                 lineHeight: 1.7,
                 whiteSpace: 'pre-wrap',
               }}>
-                {detail.description}
+                {displayData.description}
               </div>
             </div>
           )}
 
           {/* 嘉宾阵容 */}
-          {detail?.participants && detail.participants.length > 0 && (
+          {displayData?.participants && displayData.participants.length > 0 && (
             <div>
               <div style={{ fontSize: 13, color: '#e5e7eb', fontWeight: 600, marginBottom: 8 }}>嘉宾阵容</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {detail.participants.map((p, i) => (
+                {displayData.participants.map((p: string, i: number) => (
                   <Tag key={i} style={{ background: '#FBEAF0', color: '#D4537E', border: 'none', fontSize: 12 }}>
                     {p}
                   </Tag>
@@ -209,11 +203,11 @@ const IntelDetailDrawer: React.FC<IntelDetailDrawerProps> = ({
           )}
 
           {/* 相关IP */}
-          {detail?.related_ips && detail.related_ips.length > 0 && (
+          {displayData?.related_ips && displayData.related_ips.length > 0 && (
             <div>
               <div style={{ fontSize: 13, color: '#e5e7eb', fontWeight: 600, marginBottom: 8 }}>相关IP</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {detail.related_ips.map((ip, i) => (
+                {displayData.related_ips.map((ip: string, i: number) => (
                   <Tag key={i} style={{ background: '#EEEDFE', color: '#534AB7', border: 'none', fontSize: 12 }}>
                     {ip}
                   </Tag>
@@ -223,11 +217,11 @@ const IntelDetailDrawer: React.FC<IntelDetailDrawerProps> = ({
           )}
 
           {/* 标签 */}
-          {detail?.tags && detail.tags.length > 0 && (
+          {displayData?.tags && displayData.tags.length > 0 && (
             <div>
               <div style={{ fontSize: 13, color: '#e5e7eb', fontWeight: 600, marginBottom: 8 }}>标签</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {detail.tags.map((tag, i) => (
+                {displayData.tags.map((tag: string, i: number) => (
                   <Tag key={i} style={{ background: 'rgba(255,255,255,0.06)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.1)', fontSize: 12 }}>
                     #{tag}
                   </Tag>
@@ -235,38 +229,6 @@ const IntelDetailDrawer: React.FC<IntelDetailDrawerProps> = ({
               </div>
             </div>
           )}
-
-          <Divider style={{ margin: '4px 0', borderColor: 'rgba(255,255,255,0.06)' }} />
-
-          {/* 发布时段 */}
-          <div>
-            <div style={{ fontSize: 13, color: '#e5e7eb', fontWeight: 600, marginBottom: 10 }}>
-              发布时段安排
-            </div>
-            <Space size={8}>
-              {(['morning', 'afternoon', 'evening'] as const).map(t => {
-                const cfg = PUBLISH_TIME_CONFIG[t];
-                const active = selectedTime === t;
-                return (
-                  <Tag
-                    key={t}
-                    style={{
-                      cursor: 'pointer',
-                      padding: '4px 14px',
-                      borderRadius: 6,
-                      background: active ? cfg.bg : 'rgba(255,255,255,0.04)',
-                      color: active ? cfg.color : '#6b7280',
-                      border: `1px solid ${active ? cfg.color + '60' : 'rgba(255,255,255,0.08)'}`,
-                      fontSize: 12,
-                    }}
-                    onClick={() => handleSetTime(t)}
-                  >
-                    {cfg.label}
-                  </Tag>
-                );
-              })}
-            </Space>
-          </div>
 
           {/* 情报来源 */}
           {detail && (
@@ -291,25 +253,25 @@ const IntelDetailDrawer: React.FC<IntelDetailDrawerProps> = ({
           )}
 
           {/* 操作按钮 */}
-          {(detail?.purchase_url || detail?.source_post_url) && (
+          {(displayData?.purchase_url || displayData?.source_post_url) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {detail?.purchase_url && (
+              {displayData?.purchase_url && (
                 <Button
                   type="primary"
                   block
                   icon={<LinkOutlined />}
-                  href={detail.purchase_url}
+                  href={displayData.purchase_url}
                   target="_blank"
                   style={{ borderRadius: 8, height: 38, fontWeight: 600 }}
                 >
                   前往购买 / 预约
                 </Button>
               )}
-              {detail?.source_post_url && (
+              {displayData?.source_post_url && (
                 <Button
                   block
                   icon={<LinkOutlined />}
-                  href={detail.source_post_url}
+                  href={displayData.source_post_url}
                   target="_blank"
                   style={{
                     borderRadius: 8,

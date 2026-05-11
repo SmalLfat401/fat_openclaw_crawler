@@ -1,43 +1,35 @@
 import React, { useState, useMemo } from 'react';
-import { Tag, Space, Button, Popconfirm, Empty } from 'antd';
-import {
-  EditOutlined, DeleteOutlined, PushpinFilled, PushpinOutlined,
-  BellOutlined, PlusOutlined,
-} from '@ant-design/icons';
+import { Tag, Space, Empty } from 'antd';
+import { BellOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import type { ScheduleItem, IntelEvent } from './constants';
-import {
-  CONTENT_TYPE_CONFIG, CHANNELS, globalStatus, nextStatusFn,
-  formatDate, PUBLISH_STATUS_LABELS, STATUS_COLORS, INTEL_TYPE_CONFIG,
-} from './constants';
-import IntelEventCard from './IntelEventCard';
+import type { IntelEvent, IntelEventType } from './constants';
+import { INTEL_TYPE_CONFIG } from './constants';
 
 interface RightPanelProps {
   selectedDate: string;
   isDaySelected: boolean;
   weekRange: string;
-  scheduleItems: ScheduleItem[];
+  scheduleItems: any[]; // kept for API compatibility, always empty
   intelEvents: IntelEvent[];
   onCreate: (date: string) => void;
-  onEdit: (item: ScheduleItem) => void;
+  onEdit: (item: any) => void;
   onDelete: (id: string) => void;
-  onStatusChange: (item: ScheduleItem, chId: string) => void;
-  onTogglePinned: (item: ScheduleItem) => void;
+  onStatusChange: (item: any, chId: string) => void;
+  onTogglePinned: (item: any) => void;
   onIntelClick: (evt: IntelEvent) => void;
   onIntelPublishTimeChange: (eventId: string, time: 'morning' | 'afternoon' | 'evening') => void;
 }
 
 const RightPanel = React.memo<RightPanelProps>(({
-  selectedDate, isDaySelected, weekRange, scheduleItems, intelEvents,
-  onCreate, onEdit, onDelete, onStatusChange, onTogglePinned,
-  onIntelClick, onIntelPublishTimeChange,
+  selectedDate, isDaySelected, weekRange, intelEvents,
+  onIntelClick,
 }: RightPanelProps) => {
   const isToday = selectedDate === dayjs().format('YYYY-MM-DD');
   const [activeType, setActiveType] = useState<string>('__all__');
 
   const displayTitle = isDaySelected
     ? dayjs(selectedDate).format('MM月DD日')
-    : `本周 + 下周 · ${weekRange}`;
+    : weekRange;
 
   // 按情报类型统计
   const intelByType = useMemo(() => {
@@ -61,17 +53,15 @@ const RightPanel = React.memo<RightPanelProps>(({
     return intelByType[activeType] ?? [];
   }, [intelEvents, intelByType, activeType]);
 
-  // 排期内容按类型分组（给排期列表用，不受情报过滤影响）
-  const itemsByType = useMemo(() => {
-    const map: Record<string, ScheduleItem[]> = {};
-    scheduleItems.forEach(i => {
-      if (!map[i.content_type]) map[i.content_type] = [];
-      map[i.content_type].push(i);
-    });
-    return map;
-  }, [scheduleItems]);
-
-  const visibleTypes = useMemo(() => Object.keys(itemsByType), [itemsByType]);
+  const TYPE_COLORS: Record<string, { dot: string; color: string }> = {
+    convention:      { dot: '#7F77DD', color: '#534AB7' },
+    book_signing:    { dot: '#ED93B1', color: '#D4537E' },
+    pre_order:       { dot: '#FF9800', color: '#E65100' },
+    product_launch:  { dot: '#66BB6A', color: '#2E7D32' },
+    offline_activity:{ dot: '#42A5F5', color: '#1565C0' },
+    online_activity: { dot: '#AB47BC', color: '#6A1B9A' },
+    other:           { dot: '#9E9E9E', color: '#616161' },
+  };
 
   return (
     <div style={{
@@ -100,42 +90,35 @@ const RightPanel = React.memo<RightPanelProps>(({
               {displayTitle}
             </span>
             {isDaySelected && isToday && <Tag color="cyan" style={{ margin: 0 }}>今天</Tag>}
-            {!isDaySelected && <Tag style={{ margin: 0, background: '#6366f122', color: '#818cf8', border: 'none', fontSize: 11 }}>周视图</Tag>}
           </div>
           <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-            {scheduleItems.length > 0 && <span>{scheduleItems.length}条排期</span>}
-            {scheduleItems.length > 0 && intelEvents.length > 0 && <span> · </span>}
             {intelEvents.length > 0 && <span>{intelEvents.length}条情报</span>}
-            {scheduleItems.length === 0 && intelEvents.length === 0 && <span>暂无内容</span>}
+            {intelEvents.length === 0 && <span>暂无情报</span>}
           </div>
         </div>
-        <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => onCreate(selectedDate)}>
-          新建
-        </Button>
       </div>
 
       {/* 类别过滤栏 */}
-      { 
-        <div style={{
-          padding: '8px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-          display: 'flex',
-          gap: 6,
-          flexWrap: 'wrap',
-          flexShrink: 0,
-        }} >
-          <Tag
-            style={{
-              cursor: 'pointer', margin: 0,
-              background: activeType === '__all__' ? 'rgba(255,255,255,0.12)' : 'transparent',
-              color: activeType === '__all__' ? '#e5e7eb' : '#6b7280',
-              border: `1px solid ${activeType === '__all__' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}`,
-              fontSize: 12,
-            }}
-            onClick={() => setActiveType('__all__')}
-          >
-            全部 {countAll}
-          </Tag>
+      <div style={{
+        padding: '8px 16px',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex',
+        gap: 6,
+        flexWrap: 'wrap',
+        flexShrink: 0,
+      }}>
+        <Tag
+          style={{
+            cursor: 'pointer', margin: 0,
+            background: activeType === '__all__' ? 'rgba(255,255,255,0.12)' : 'transparent',
+            color: activeType === '__all__' ? '#e5e7eb' : '#6b7280',
+            border: `1px solid ${activeType === '__all__' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}`,
+            fontSize: 12,
+          }}
+          onClick={() => setActiveType('__all__')}
+        >
+          全部 {countAll}
+        </Tag>
         {Object.entries(INTEL_TYPE_CONFIG).map(([ct, cfg]) => {
           const count = countByType[ct] ?? 0;
           const isActive = activeType === ct;
@@ -155,13 +138,12 @@ const RightPanel = React.memo<RightPanelProps>(({
             </Tag>
           );
         })}
-        </div>
-      }
+      </div>
 
       {/* 面板内容（可滚动） */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {filteredIntelEvents.length > 0 && (
+        {filteredIntelEvents.length > 0 ? (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
               <Space>
@@ -172,116 +154,53 @@ const RightPanel = React.memo<RightPanelProps>(({
                 </Tag>
               </Space>
             </div>
-            {filteredIntelEvents.map(evt => (
-              <IntelEventCard
-                key={evt.id}
-                evt={evt}
-                onPublishTimeChange={onIntelPublishTimeChange}
-                onClick={() => onIntelClick(evt)}
-              />
-            ))}
-          </div>
-        )}
-
-        {scheduleItems.length > 0 ? (
-          <div>
-            {visibleTypes.map(ct => {
-              const ctItems = itemsByType[ct];
-              const cfg = CONTENT_TYPE_CONFIG[ct] ?? CONTENT_TYPE_CONFIG['activity'];
+            {filteredIntelEvents.map(evt => {
+              const tcfg = INTEL_TYPE_CONFIG[evt.type] ?? INTEL_TYPE_CONFIG['other'];
+              const colors = TYPE_COLORS[evt.type] ?? TYPE_COLORS['other'];
               return (
-                <div key={ct} style={{ marginBottom: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <span style={{ fontSize: 14 }}>{cfg.icon}</span>
-                    <span style={{ fontSize: 13, color: '#9ca3af', fontWeight: 600 }}>{cfg.label}</span>
-                    <Tag style={{ fontSize: 10, margin: 0, background: `${cfg.color}22`, color: cfg.color, border: 'none' }}>
-                      {ctItems.length}
-                    </Tag>
-                  </div>
-                  {ctItems.map(item => {
-                    const gs = globalStatus(item);
-                    return (
-                      <div key={item.id} style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.06)',
-                        borderRadius: 10,
-                        padding: '10px 12px',
-                        marginBottom: 8,
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <span style={{ color: '#e5e7eb', fontWeight: 500, fontSize: 13, flex: 1, minWidth: 0 }}>
-                            {item.title || '(无标题)'}
-                          </span>
-                          <Tag color={STATUS_COLORS[gs]} style={{ marginRight: 0, fontSize: 11, flexShrink: 0 }}>
-                            {PUBLISH_STATUS_LABELS[gs]}
-                          </Tag>
-                        </div>
-
-                        {item.body && (
-                          <div style={{ color: '#9ca3af', fontSize: 12, lineHeight: 1.5, marginBottom: 6, maxHeight: 40, overflow: 'hidden' }}>
-                            {item.body.length > 60 ? item.body.slice(0, 60) + '…' : item.body}
-                          </div>
-                        )}
-
-                        {item.linked_slags.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-                            {item.linked_slags.map(s => (
-                              <Tag key={s.slang_id} color="purple" style={{ fontSize: 11, margin: 0 }}>
-                                {s.slang_name}
-                              </Tag>
-                            ))}
-                          </div>
-                        )}
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 8 }}>
-                          {CHANNELS.map(ch => {
-                            const ps = item.platforms[ch.id];
-                            if (!ps) return null;
-                            const ns = nextStatusFn(ps.status);
-                            return (
-                              <div key={ch.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Space>
-                                  <span style={{ fontSize: 12 }}>{ch.icon}</span>
-                                  <span style={{ color: '#9ca3af', fontSize: 12 }}>{ch.name}</span>
-                                  <Tag color={STATUS_COLORS[ps.status]} style={{ marginRight: 0, fontSize: 10, padding: '0 4px' }}>
-                                    {PUBLISH_STATUS_LABELS[ps.status]}
-                                  </Tag>
-                                </Space>
-                                {ns ? (
-                                  <Button
-                                    size="small"
-                                    type={ns === 'published' ? 'primary' : 'default'}
-                                    style={{ fontSize: 11, padding: '0 8px', height: 22 }}
-                                    onClick={() => onStatusChange(item, ch.id)}
-                                  >
-                                    {ns === 'confirmed' ? '确认' : '发布'}
-                                  </Button>
-                                ) : (
-                                  ps.published_at && (
-                                    <span style={{ fontSize: 11, color: '#6b7280' }}>{formatDate(ps.published_at)}</span>
-                                  )
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 6, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8 }}>
-                          <Button size="small" icon={<EditOutlined />} style={{ fontSize: 12 }} onClick={() => onEdit(item)}>编辑</Button>
-                          <Button
-                            size="small"
-                            icon={item.is_pinned ? <PushpinFilled /> : <PushpinOutlined />}
-                            style={{ fontSize: 12, color: item.is_pinned ? '#00f0ff' : undefined }}
-                            onClick={() => onTogglePinned(item)}
-                          >
-                            {item.is_pinned ? '取消锚定' : '锚定'}
-                          </Button>
-                          <Popconfirm title="确定删除？" onConfirm={() => onDelete(item.id)}>
-                            <Button size="small" danger icon={<DeleteOutlined />} style={{ fontSize: 12 }}>删除</Button>
-                          </Popconfirm>
-                        </div>
+                <div
+                  key={evt.id}
+                  onClick={() => onIntelClick(evt)}
+                  style={{
+                    background: `${tcfg.color}12`,
+                    border: `1px solid ${tcfg.color}28`,
+                    borderLeft: `3px solid ${tcfg.color}`,
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    marginBottom: 8,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = `${tcfg.color}20`)}
+                  onMouseLeave={e => (e.currentTarget.style.background = `${tcfg.color}12`)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <span style={{ fontSize: 18, lineHeight: 1 }}>{evt.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: '#e5e7eb', fontSize: 13, fontWeight: 500, marginBottom: 3 }}>
+                        {evt.name}
                       </div>
-                    );
-                  })}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', marginBottom: 4 }}>
+                        {evt.time && <span style={{ fontSize: 11, color: '#9ca3af' }}>{evt.time}</span>}
+                        {evt.time && evt.venue && <span style={{ fontSize: 11, color: '#9ca3af' }}>·</span>}
+                        {evt.venue && <span style={{ fontSize: 11, color: '#9ca3af' }}>{evt.venue}</span>}
+                        <Tag
+                          style={{
+                            fontSize: 10, padding: '0 4px', margin: 0,
+                            background: `${tcfg.color}25`,
+                            color: tcfg.color, border: 'none',
+                          }}
+                        >
+                          {tcfg.label}
+                        </Tag>
+                      </div>
+                      {evt.price !== undefined && (
+                        <div style={{ color: '#52c41a', fontSize: 12 }}>
+                          {typeof evt.price === 'number' ? `¥${evt.price}` : evt.price}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -289,10 +208,11 @@ const RightPanel = React.memo<RightPanelProps>(({
         ) : (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={<span style={{ color: '#6b7280', fontSize: 12 }}>该日期暂无排期内容</span>}
+            description={<span style={{ color: '#6b7280', fontSize: 12 }}>暂无情报内容</span>}
             style={{ margin: '20px 0' }}
           />
         )}
+
       </div>
     </div>
   );
