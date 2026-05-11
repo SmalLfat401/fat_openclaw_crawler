@@ -11,6 +11,23 @@ from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 from enum import Enum
 
+
+def _normalize_confidence(value: Any, default: float = 0.5) -> float:
+    """
+    规范化置信度值到 0.0-1.0 范围
+    
+    AI 模型可能返回超出范围的值（如 3、100 等），
+    此函数确保返回值始终在有效范围内。
+    """
+    if value is None:
+        return default
+    try:
+        float_val = float(value)
+        return max(0.0, min(1.0, float_val))
+    except (ValueError, TypeError):
+        return default
+
+
 from app.database.weibo_intel_dao import weibo_intel_dao, normalize_text, generate_dedup_hash
 from app.database.system_config_dao import system_config_dao
 from app.database.weibo_post_dao import weibo_post_dao
@@ -548,7 +565,7 @@ class WeiboIntelService:
                 "is_trigger_post": True,
             }],
             "extract_method": ExtractMethod.AI.value,
-            "confidence": ai_result.get("confidence", 0.5),
+            "confidence": _normalize_confidence(ai_result.get("confidence")),
             "ai_model": llm_service.model,
             "ai_raw_response": ai_result,
             "dedup_hash": dedup_hash,
@@ -588,7 +605,7 @@ class WeiboIntelService:
             merged = weibo_intel_dao.merge_intel(existing.id, intel_data, post_ref, changed_fields=self._detect_changes(existing, intel_data))
             if merged:
                 weibo_post_dao.update_intel_status(
-                    post.mid, status=1, confidence=ai_result.get("confidence", 0.5),
+                    post.mid, status=1, confidence=_normalize_confidence(ai_result.get("confidence")),
                     extracted_info={"intel_id": merged.id, "merged": True}
                 )
                 return "merged"
@@ -598,7 +615,7 @@ class WeiboIntelService:
             intel = WeiboIntel(**intel_data)
             weibo_intel_dao.create(intel)
             weibo_post_dao.update_intel_status(
-                post.mid, status=1, confidence=ai_result.get("confidence", 0.5),
+                post.mid, status=1, confidence=_normalize_confidence(ai_result.get("confidence")),
                 extracted_info={"intel_id": intel.id, "merged": False}
             )
 
@@ -1066,7 +1083,7 @@ class WeiboIntelService:
                 related_ips=ai_result.get("related_ips") or [],
                 tags=ai_result.get("tags") or [],
                 description=ai_result.get("description"),
-                confidence=ai_result.get("confidence", 0.5),
+                confidence=_normalize_confidence(ai_result.get("confidence")),
                 learned_keywords=ai_result.get("learned_keywords") or [],
             ).model_dump()
 

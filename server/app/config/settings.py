@@ -34,7 +34,8 @@ class Settings(BaseSettings):
     # 申请 DeepSeek: https://platform.deepseek.com/
     # 申请 OpenAI: https://platform.openai.com/
     llm_api_key: str = "sk-eaefde6568f549e98f020c11669aa849"
-    llm_model: str = "deepseek-chat"
+    # llm_model: str = "deepseek-chat"
+    llm_model: str = "deepseek-v4-flash"
     llm_base_url: str = "https://api.deepseek.com"
 
     # OpenClaw API (Optional)

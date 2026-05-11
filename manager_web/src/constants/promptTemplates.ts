@@ -498,6 +498,4 @@ export const DEFAULT_SCRIPT_PROMPT = `你是一名二次元文化科普创作者
 
 ---
 
-【已生成的口播文案】：
-
-`;
+【已生成的口播文案】：`;
