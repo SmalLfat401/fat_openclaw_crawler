@@ -1,6 +1,5 @@
 import { apiClient } from './config';
 
-/** H5 情报详情（与 h5/src/types/index.ts 中 IntelEventDetail 保持一致） */
 export interface IntelEventDetail {
   id: string;
   uuid: string;
@@ -27,6 +26,18 @@ export interface IntelEventDetail {
   updated_at?: string;
 }
 
+export type IntelCategory = 'convention' | 'book_signing' | 'pre_order' | 'product_launch' | 'offline_activity' | 'online_activity' | 'other';
+
+export const INTEL_CATEGORIES: { value: IntelCategory; label: string }[] = [
+  { value: 'convention',      label: '漫展' },
+  { value: 'book_signing',    label: '签售' },
+  { value: 'pre_order',       label: '预售' },
+  { value: 'product_launch',  label: '新谷开团' },
+  { value: 'offline_activity', label: '线下活动' },
+  { value: 'online_activity', label: '线上活动' },
+  { value: 'other',          label: '其他' },
+];
+
 /**
  * 获取情报详情（供 manager_web 运营后台情报详情抽屉使用）
  * 接口: GET /api/v1/h5/intel/events/{intelId}
@@ -39,4 +50,17 @@ export async function fetchIntelEventDetail(intelId: string): Promise<IntelEvent
     console.error('获取情报详情失败:', error);
     return null;
   }
+}
+
+/**
+ * 更新情报类别（重新标记）
+ * 接口: PUT /api/v1/weibo-intel/{intelId}
+ */
+export async function updateIntelCategory(
+  intelId: string,
+  category: IntelCategory
+): Promise<void> {
+  // 去掉 intel_ 前缀（前端 id 格式为 intel_xxx）
+  const rawId = intelId.replace(/^intel_/, '');
+  await apiClient.put(`/weibo-intel/${rawId}`, { category });
 }

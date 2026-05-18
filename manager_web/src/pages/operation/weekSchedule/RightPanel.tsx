@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Tag, Space, Empty } from 'antd';
 import { BellOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import type { IntelEvent, IntelEventType } from './constants';
+import type { IntelEvent } from './constants';
 import { INTEL_TYPE_CONFIG } from './constants';
 
 interface RightPanelProps {
@@ -52,16 +52,6 @@ const RightPanel = React.memo<RightPanelProps>(({
     if (activeType === '__all__') return intelEvents;
     return intelByType[activeType] ?? [];
   }, [intelEvents, intelByType, activeType]);
-
-  const TYPE_COLORS: Record<string, { dot: string; color: string }> = {
-    convention:      { dot: '#7F77DD', color: '#534AB7' },
-    book_signing:    { dot: '#ED93B1', color: '#D4537E' },
-    pre_order:       { dot: '#FF9800', color: '#E65100' },
-    product_launch:  { dot: '#66BB6A', color: '#2E7D32' },
-    offline_activity:{ dot: '#42A5F5', color: '#1565C0' },
-    online_activity: { dot: '#AB47BC', color: '#6A1B9A' },
-    other:           { dot: '#9E9E9E', color: '#616161' },
-  };
 
   return (
     <div style={{
@@ -156,7 +146,6 @@ const RightPanel = React.memo<RightPanelProps>(({
             </div>
             {filteredIntelEvents.map(evt => {
               const tcfg = INTEL_TYPE_CONFIG[evt.type] ?? INTEL_TYPE_CONFIG['other'];
-              const colors = TYPE_COLORS[evt.type] ?? TYPE_COLORS['other'];
               return (
                 <div
                   key={evt.id}

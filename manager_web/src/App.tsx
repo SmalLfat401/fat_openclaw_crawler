@@ -1,9 +1,10 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, ConfigProvider, theme, Spin } from 'antd';
+import { Layout, Menu, ConfigProvider, theme, Spin, Button, Popover, Avatar } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
-import { UserOutlined, DashboardOutlined, SettingOutlined, TagOutlined, DatabaseOutlined, BulbOutlined, ShoppingOutlined, BookOutlined, FireOutlined, CalendarOutlined, HeartOutlined, KeyOutlined, ThunderboltOutlined, RobotOutlined, AlertOutlined, GiftOutlined, AppstoreOutlined, ScheduleOutlined, TeamOutlined } from '@ant-design/icons';
+import { UserOutlined, DashboardOutlined, SettingOutlined, TagOutlined, DatabaseOutlined, BulbOutlined, ShoppingOutlined, BookOutlined, FireOutlined, CalendarOutlined, HeartOutlined, KeyOutlined, ThunderboltOutlined, RobotOutlined, AlertOutlined, GiftOutlined, AppstoreOutlined, ScheduleOutlined, TeamOutlined, LogoutOutlined, UserSwitchOutlined } from '@ant-design/icons';
 import { useFeatures } from './context/FeaturesContext';
+import { useAuth } from './context/AuthContext';
 import './styles/global.scss';
 
 const { Header, Content, Sider } = Layout;
@@ -12,8 +13,13 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { features, loading } = useFeatures();
+  const { user, logout } = useAuth();
 
-  // 根路径重定向：根据 Feature Flag 决定跳转目标
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
   React.useEffect(() => {
     if (!loading && location.pathname === '/') {
       const flags = features || { WEIBO_USERS_ENABLED: true };
@@ -22,7 +28,6 @@ function App() {
     }
   }, [loading, location.pathname, features, navigate]);
 
-  // 加载中显示 loading
   if (loading) {
     return (
       <ConfigProvider locale={zhCN}>
@@ -33,11 +38,9 @@ function App() {
     );
   }
 
-  // 如果获取失败，默认全部启用（开发友好）
   const flags = features || { WEIBO_USERS_ENABLED: true, WEIBO_INTEL_ENABLED: true, LLM_ENABLED: true };
 
   const menuItems = [
-    // 微博情报（始终显示，情报管理 + 信息提取）
     {
       key: 'weibo-intel',
       icon: <RobotOutlined />,
@@ -48,7 +51,6 @@ function App() {
         { key: '/weibo-intel/keywords', icon: <KeyOutlined />, label: '关键词库' },
       ],
     },
-    // 微博用户管理（仅在 WEIBO_USERS_ENABLED 时显示）
     ...(flags.WEIBO_USERS_ENABLED ? [
       { key: '/weibo-users', icon: <UserOutlined />, label: '微博用户管理' },
     ] : []),
@@ -89,6 +91,24 @@ function App() {
     },
   ];
 
+  const userMenuContent = (
+    <div style={{ minWidth: 160 }}>
+      <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(0,240,255,0.1)', marginBottom: 8 }}>
+        <div style={{ color: '#e5e7eb', fontWeight: 600, fontSize: 13 }}>{user?.username}</div>
+        <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 2 }}>管理员</div>
+      </div>
+      <Button
+        type="text"
+        icon={<LogoutOutlined />}
+        onClick={handleLogout}
+        style={{ color: '#ff4d4f', width: '100%', textAlign: 'left', justifyContent: 'flex-start' }}
+        danger
+      >
+        退出登录
+      </Button>
+    </div>
+  );
+
   return (
     <ConfigProvider
       locale={zhCN}
@@ -112,6 +132,19 @@ function App() {
         <Header className="app-header">
           <div className="header-title">
             OpenClaw 爬虫管理平台
+          </div>
+          <div className="header-right">
+            <Popover
+              content={userMenuContent}
+              trigger="click"
+              placement="bottomRight"
+              arrow={false}
+            >
+              <div className="header-user">
+                <Avatar size={28} icon={<UserSwitchOutlined />} style={{ background: 'rgba(0,240,255,0.2)', border: '1px solid rgba(0,240,255,0.3)' }} />
+                <span className="header-username">{user?.username}</span>
+              </div>
+            </Popover>
           </div>
         </Header>
         <Layout>

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.api import (
+    auth as auth_router,
     routes,
     weibo_users_router,
     categories_router,
@@ -101,6 +102,7 @@ app.add_middleware(
 )
 
 app.include_router(features_router, prefix="/api/v1", tags=["功能开关"])
+app.include_router(auth_router.router, prefix="/api/v1", tags=["认证管理"])
 
 # Include routers (controlled by Feature Flags)
 

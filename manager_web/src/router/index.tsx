@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import App from '../App';
+import LoginPage from '../pages/login/LoginPage';
 import WeiboUserTable from '../components/WeiboUserTable';
 import Dashboard from '../pages/Dashboard';
 import CategoryList from '../pages/categories/CategoryList';
@@ -20,11 +21,20 @@ import WeiboIntelEditPage from '../pages/weiboIntel/WeiboIntelEdit';
 import KeywordLibrary from '../pages/weiboIntel/KeywordLibrary';
 import WeekScheduleOverview from '../pages/operation/weekSchedule';
 import PublishChannelSettings from '../pages/operation/PublishChannelSettings';
+import { ProtectedRoute } from '../components/ProtectedRoute';
 
 const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
     path: '/',
-    element: <App />,
+    element: (
+      <ProtectedRoute>
+        <App />
+      </ProtectedRoute>
+    ),
     children: [
       {
         index: true,
@@ -96,33 +106,33 @@ const router = createBrowserRouter([
       },
       {
         path: 'settings',
-          children: [
-            {
-              index: true,
-              element: <Navigate to="/settings/categories" replace />,
-            },
-            {
-              path: 'categories',
-              element: <CategoryList />,
-            },
-            {
-              path: 'guzi-tags',
-              element: <GuziTagSettings />,
-            },
-            {
-              path: 'guzi-categories',
-              element: <GuziCategorySettings />,
-            },
-            {
-              path: 'commission-account',
-              element: <CommissionAccountSettings />,
-            },
-            {
-              path: 'database',
-              element: <div style={{ padding: 24 }}>数据库管理开发中...</div>,
-            },
-          ],
-        },
+        children: [
+          {
+            index: true,
+            element: <Navigate to="/settings/categories" replace />,
+          },
+          {
+            path: 'categories',
+            element: <CategoryList />,
+          },
+          {
+            path: 'guzi-tags',
+            element: <GuziTagSettings />,
+          },
+          {
+            path: 'guzi-categories',
+            element: <GuziCategorySettings />,
+          },
+          {
+            path: 'commission-account',
+            element: <CommissionAccountSettings />,
+          },
+          {
+            path: 'database',
+            element: <div style={{ padding: 24 }}>数据库管理开发中...</div>,
+          },
+        ],
+      },
     ],
   },
 ]);

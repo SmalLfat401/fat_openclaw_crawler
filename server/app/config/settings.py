@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # 申请 OpenAI: https://platform.openai.com/
     llm_api_key: str = "sk-eaefde6568f549e98f020c11669aa849"
     # llm_model: str = "deepseek-chat"
-    llm_model: str = "deepseek-v4-flash"
+    llm_model: str = "deepseek-v4-pro"
     llm_base_url: str = "https://api.deepseek.com"
 
     # OpenClaw API (Optional)
@@ -54,8 +54,8 @@ class Settings(BaseSettings):
     local_mongodb_password: Optional[str] = None
 
     # MongoDB 线上环境配置
-    prod_mongodb_host: str = "172.16.8.53"
-    prod_mongodb_port: int = 27017
+    prod_mongodb_host: str = "172.16.8.69"
+    prod_mongodb_port: int = 37017
     prod_mongodb_db: str = "guozi_cai"
     prod_mongodb_user: Optional[str] = "hentre"
     prod_mongodb_password: Optional[str] = "Hentre2026!"

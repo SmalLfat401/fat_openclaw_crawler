@@ -5,9 +5,9 @@ import dayjs from 'dayjs';
 import { apiClient } from '../../../api/config';
 import '../../../styles/global.scss';
 
-import type { IntelEvent, IntelEventType } from './constants';
+import type { IntelEventType } from './constants';
 import { INTEL_TYPE_CONFIG } from './constants';
-import CalendarCell from './CalendarCell';
+import { updateIntelCategory, type IntelCategory } from '../../../api/intelEvent';
 import RightPanel from './RightPanel';
 import IntelDetailDrawer from './IntelDetailDrawer';
 
@@ -283,6 +283,20 @@ const WeekScheduleOverview: React.FC = () => {
     setIntelDetailOpen(true);
   };
 
+  // 保存类别后更新本地数据并刷新
+  const handleIntelSaved = (updatedId: string, newCategory: IntelCategory) => {
+    // 更新 allEvents 中对应事件的类型
+    setAllEvents(prev =>
+      prev.map(e =>
+        e.id === updatedId ? { ...e, type: newCategory as UnifiedEventType } : e
+      )
+    );
+    // 同时更新当前选中情报的显示
+    setSelectedIntel(prev => prev ? { ...prev, type: newCategory as UnifiedEventType } : prev);
+    // 关闭详情抽屉
+    setIntelDetailOpen(false);
+  };
+
   // ---- 过滤标签配置 ----
   const FILTER_CONFIG: { key: UnifiedEventType | 'all'; label: string }[] = [
     { key: 'all',              label: '全部' },
@@ -499,8 +513,6 @@ const WeekScheduleOverview: React.FC = () => {
                 gridTemplateColumns: 'repeat(7, 1fr)',
               }}>
                 {calData.map((day, idx) => {
-                  const isSunday = idx % 7 === 0;
-                  const isSaturday = idx % 7 === 6;
                   const isWeekEnd = idx % 7 === 6; // 周六右侧加粗分隔
                   const isWeekStart = idx % 7 === 0; // 周日左侧分隔
                   return (
@@ -698,6 +710,7 @@ const WeekScheduleOverview: React.FC = () => {
         open={intelDetailOpen}
         onClose={() => setIntelDetailOpen(false)}
         onPublishTimeChange={() => {}}
+        onSaved={handleIntelSaved}
       />
     </div>
   );

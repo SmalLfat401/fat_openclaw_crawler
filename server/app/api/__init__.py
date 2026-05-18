@@ -1,4 +1,5 @@
 """API package."""
+from app.api.auth import router as auth_router
 from app.api.routes import router as routes_router
 from app.api.weibo_users import router as weibo_users_router
 from app.api.categories import router as categories_router
@@ -21,6 +22,7 @@ from app.api.schedule_items import router as schedule_items_router
 from app.api.track_events import router as track_events_router
 
 __all__ = [
+    "auth_router",
     "routes_router",
     "weibo_users_router",
     "categories_router",
