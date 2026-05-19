@@ -98,6 +98,9 @@ const ConventionTermList: React.FC = () => {
     setAssistLoading(true);
     setAiContent('');
     setRawContent('');
+
+    const controller = new AbortController();
+
     try {
       const fullPrompt = DEFAULT_ASSIST_PROMPT + '\n\n' + contextData;
       const response = await llmApi.assistStream({ prompt: fullPrompt });
@@ -132,9 +135,9 @@ const ConventionTermList: React.FC = () => {
           }
         }
       }
-      // 生成完成，自动保存到数据库
       await handleSaveContent('ai_copywriting', accumulated);
     } catch (err) {
+      if ((err as any).name === 'AbortError') return;
       message.error(err instanceof Error ? err.message : '助写失败');
     } finally {
       setAssistLoading(false);
@@ -148,10 +151,12 @@ const ConventionTermList: React.FC = () => {
     setScriptLoading(true);
     setScriptContent('');
     setScriptRawContent('');
+
+    const controller = new AbortController();
+
     try {
-      // 使用已生成的口播文案来生成镜头脚本
-      const fullPrompt = DEFAULT_SCRIPT_PROMPT + aiContent;
-      const response = await llmApi.assistStream({ prompt: fullPrompt });
+      const fullPrompt = DEFAULT_SCRIPT_PROMPT + '\n\n【已生成的口播文案】：\n' + aiContent;
+      const response = await llmApi.assistStream({ prompt: fullPrompt, max_tokens: 8192 });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error((errData as any).detail || `请求失败: ${response.status}`);
@@ -183,9 +188,9 @@ const ConventionTermList: React.FC = () => {
           }
         }
       }
-      // 生成完成，自动保存到数据库
       await handleSaveContent('ai_script', accumulated);
     } catch (err) {
+      if ((err as any).name === 'AbortError') return;
       message.error(err instanceof Error ? err.message : '脚本生成失败');
     } finally {
       setScriptLoading(false);

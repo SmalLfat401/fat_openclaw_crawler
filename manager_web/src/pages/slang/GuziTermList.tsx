@@ -151,7 +151,7 @@ const GuziTermList: React.FC = () => {
     try {
       // 使用已生成的口播文案来生成镜头脚本
       const fullPrompt = DEFAULT_SCRIPT_PROMPT + '\n\n【已生成的口播文案】：\n' + aiContent;
-      const response = await llmApi.assistStream({ prompt: fullPrompt });
+      const response = await llmApi.assistStream({ prompt: fullPrompt, max_tokens: 8192 });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error((errData as any).detail || `请求失败: ${response.status}`);
