@@ -514,7 +514,7 @@ class WeiboIntelDAO:
     def find_published_for_h5(
         self,
         skip: int = 0,
-        limit: int = 20,
+        limit: Optional[int] = 20,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         category: Optional[str] = None,
@@ -576,9 +576,10 @@ class WeiboIntelDAO:
         cursor = (
             self.collection.find(query, projection)
             .skip(skip)
-            .limit(limit)
-            .sort("event_start_date", ASCENDING)
         )
+        if limit is not None:
+            cursor = cursor.limit(limit)
+        cursor = cursor.sort("event_start_date", ASCENDING)
         results = []
         for doc in cursor:
             results.append(WeiboIntel(**doc))

@@ -66,7 +66,11 @@ async def list_intel_events(
     if mode == "calendar":
         if not end_date:
             end_date = "2099-12-31"
-        limit = 2000  # 日历视图一次性获取当月（或范围）所有事件，上限2000条
+        # 如果同时指定了起止日期，按日期范围全量返回，不设上限
+        if start_date and end_date:
+            limit = None
+        else:
+            limit = 2000  # 日历视图一次性获取当月（或范围）所有事件
 
     # 列表视图: 从今天开始，按分页返回
     # 注意：强制使用服务器日期作为 start_date，避免前端时差导致日期错误
@@ -84,7 +88,7 @@ async def list_intel_events(
     # 日历视图不需要精确总数（前端只看 items，total 仅用于分页指示）
     # count_documents 在数据量大时开销显著，直接用返回的 limit 作为上限
     if mode == "calendar":
-        total = min(total, limit)
+        total = min(total, limit) if limit is not None else total
     return {
         "items": [_intel_to_event(i) for i in intel_list],
         "total": total,
